@@ -6,84 +6,67 @@ from mysql.connector import Error
 
 st.set_page_config(page_title="Supply Chain AI", layout="wide")
 st.title("🚛 AI Supply Chain Dashboard")
-st.markdown("**MySQL or CSV Upload → Live Dashboard**")
+st.markdown("**MySQL + Excel Support**")
 
-# ====================== DATA SOURCE ======================
-mode = st.sidebar.radio("Select Data Source", ["📤 CSV Upload", "🗄️ MySQL Database"])
+# ====================== SIDEBAR ======================
+option = st.sidebar.radio("Data Source", ["📤 Excel Upload", "🗄️ MySQL Database"])
 
-if mode == "🗄️ MySQL Database":
-    st.sidebar.header("MySQL Login")
+data_loaded = False
+sales_df = products_df = shipments_df = None
+
+if option == "🗄️ MySQL Database":
+    st.sidebar.header("MySQL Connection")
     host = st.sidebar.text_input("Host", "localhost")
-    user = st.sidebar.text_input("Username", "root")
+    user = st.sidebar.text_input("User", "root")
     password = st.sidebar.text_input("Password", "code_RED", type="password")
-    db_name = st.sidebar.text_input("Database", "supply_chain")
+    database = st.sidebar.text_input("Database", "supply_chain")
 
-    if st.sidebar.button("🔗 Connect to MySQL"):
+    if st.sidebar.button("Connect to MySQL"):
         try:
             conn = mysql.connector.connect(
-                host=host, user=user, password=password, database=db_name
+                host=host, user=user, password=password, database=database
             )
             st.success("✅ Connected to MySQL!")
 
-            # Load from DB
             sales_df = pd.read_sql("SELECT * FROM sales", conn)
             products_df = pd.read_sql("SELECT * FROM products", conn)
             shipments_df = pd.read_sql("SELECT * FROM shipments", conn)
-
-            st.session_state.sales_df = sales_df
-            st.session_state.products_df = products_df
-            st.session_state.shipments_df = shipments_df
-            st.session_state.data_loaded = True
-            st.success("Data loaded from MySQL!")
+            data_loaded = True
+            st.session_state.conn = conn
         except Error as e:
-            st.error(f"❌ Connection Error: {e}")
+            st.error(f"Connection Failed: {e}")
+            st.info("💡 Tip: Make sure MySQL server is running (`mysqld` or XAMPP)")
 
 else:
-    # CSV Upload Mode
-    st.sidebar.header("📤 Upload Files")
-    products_file = st.sidebar.file_uploader("products.csv", type=["csv"])
-    sales_file = st.sidebar.file_uploader("sales.csv", type=["csv"])
-    shipments_file = st.sidebar.file_uploader("shipments.csv", type=["csv"])
+    # Excel Upload
+    uploaded_file = st.sidebar.file_uploader("Upload supply_chain_dataset.xlsx", type=["xlsx"])
+    if uploaded_file:
+        products_df = pd.read_excel(uploaded_file, sheet_name='products')
+        shipments_df = pd.read_excel(uploaded_file, sheet_name='shipments')
+        sales_df = pd.read_excel(uploaded_file, sheet_name='sales')
+        data_loaded = True
+        st.success("✅ Excel Loaded!")
 
-    if st.sidebar.button("Load CSVs") and products_file and sales_file and shipments_file:
-        sales_df = pd.read_csv(sales_file)
-        products_df = pd.read_csv(products_file)
-        shipments_df = pd.read_csv(shipments_file)
-
-        st.session_state.sales_df = sales_df
-        st.session_state.products_df = products_df
-        st.session_state.shipments_df = shipments_df
-        st.session_state.data_loaded = True
-        st.success("✅ CSVs Loaded Successfully!")
-
-# ====================== CHECK IF DATA LOADED ======================
-if 'data_loaded' not in st.session_state:
-    st.warning("Please connect to MySQL or upload CSVs")
+# ====================== IF DATA LOADED ======================
+if not data_loaded:
+    st.warning("Please connect to MySQL or upload Excel file")
     st.stop()
 
-# Load data from session
-sales_df = st.session_state.sales_df
-products_df = st.session_state.products_df
-shipments_df = st.session_state.shipments_df
-
-# ====================== DATA CLEANING ======================
+# Data Cleaning
 sales_df['sale_date'] = pd.to_datetime(sales_df['sale_date'], errors='coerce')
 shipments_df['expected_delivery'] = pd.to_datetime(shipments_df['expected_delivery'], errors='coerce')
 shipments_df['actual_delivery'] = pd.to_datetime(shipments_df['actual_delivery'], errors='coerce')
 sales_df['revenue'] = pd.to_numeric(sales_df['revenue'], errors='coerce')
 
-# ====================== DASHBOARD ======================
+# ====================== METRICS ======================
 col1, col2, col3, col4 = st.columns(4)
-total_rev = sales_df['revenue'].sum()
-delayed = len(shipments_df[shipments_df['actual_delivery'] > shipments_df['expected_delivery']])
-low_stock = len(products_df[products_df['stock_quantity'] < products_df['reorder_level']])
+col1.metric("💰 Total Revenue", f"${sales_df['revenue'].sum():,.0f}")
+col2.metric("⚠️ Delayed Shipments", len(shipments_df[shipments_df['actual_delivery'] > shipments_df['expected_delivery']]))
+col3.metric("📉 Low Stock", len(products_df[products_df['stock_quantity'] < products_df['reorder_level']]))
+col4.metric("📦 Products", len(products_df))
 
-col1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
-col2.metric("⚠️ Delayed Shipments", delayed)
-col3.metric("📉 Low Stock", low_stock)
-col4.metric("📦 Total Products", len(products_df))
-
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Sales", "📦 Inventory", "🚚 Shipments", "📁 Raw Data"])
+# ====================== TABS ======================
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Sales", "📦 Inventory", "🚚 Shipments", "🔍 SQL Query"])
 
 with tab1:
     st.subheader("Monthly Revenue")
@@ -93,23 +76,30 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True, width='stretch')
 
 with tab2:
-    st.subheader("Low Stock Products")
-    low_df = products_df[products_df['stock_quantity'] < products_df['reorder_level']]
-    st.dataframe(low_df, width='stretch')
+    st.subheader("Low Stock")
+    low = products_df[products_df['stock_quantity'] < products_df['reorder_level']]
+    st.dataframe(low, width='stretch')
 
 with tab3:
-    st.subheader("🚚 Shipment Delays")
+    st.subheader("Shipment Delays")
     shipments_df['delay_days'] = (shipments_df['actual_delivery'] - shipments_df['expected_delivery']).dt.days
-    st.dataframe(shipments_df, width='stretch')
-
-    total_delayed = len(shipments_df[shipments_df['delay_days'] > 0])
-    if total_delayed == 0:
-        st.success("✅ No delays! All shipments on time.")
-    else:
-        st.warning(f"⚠️ {total_delayed} Delayed Shipments")
+    st.dataframe(shipments_df[['shipment_id','product_id','expected_delivery','actual_delivery','delay_days']], 
+                 width='stretch')
 
 with tab4:
-    st.subheader("Raw Data")
-    st.dataframe(sales_df.head(), width='stretch')
+    st.subheader("Custom SQL Query")
+    query = st.text_area("Write your SQL here:", 
+                        "SELECT * FROM sales LIMIT 10", height=120)
+    if st.button("Run Query"):
+        try:
+            if 'conn' in st.session_state:
+                result = pd.read_sql(query, st.session_state.conn)
+            else:
+                st.error("SQL Query only works in MySQL mode")
+                result = None
+            if result is not None:
+                st.dataframe(result, width='stretch')
+        except Exception as e:
+            st.error(f"Query Error: {e}")
 
-st.caption("Hybrid Dashboard | MySQL + CSV Support")
+st.caption("Supply Chain Project | MySQL + Excel")
