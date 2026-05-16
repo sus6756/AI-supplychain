@@ -49,7 +49,7 @@ elif option == "🗄️ MySQL Database":
     if st.sidebar.button("🔗 Connect to MySQL"):
         try:
             conn = mysql.connector.connect(
-                host=host, 
+                host="127.0.0.1",   # ONLY CHANGE DONE HERE
                 user=user, 
                 password=password, 
                 database=database,
@@ -99,7 +99,9 @@ with tab1:
 with tab3:
     st.subheader("Shipment Delays")
     shipments_df['delay_days'] = (shipments_df['actual_delivery'] - shipments_df['expected_delivery']).dt.days
-    st.dataframe(shipments_df[['shipment_id', 'product_id', 'expected_delivery', 'actual_delivery', 'delay_days']], 
-                 use_container_width=True)
+    st.dataframe(
+        shipments_df[['shipment_id', 'product_id', 'expected_delivery', 'actual_delivery', 'delay_days']], 
+        use_container_width=True
+    )
 
 st.caption("Supply Chain Project Dashboard")
