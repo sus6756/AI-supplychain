@@ -47,8 +47,7 @@ elif option == "🗄️ MySQL Database":
     password = st.sidebar.text_input("Password", "code_RED", type="password")
     database = st.sidebar.text_input("Database", "supply_chain")
 
-    col1, col2 = st.sidebar.columns(2)
-    if col1.button("Connect"):
+    if st.sidebar.button("🔗 Connect to MySQL"):
         try:
             conn = mysql.connector.connect(
                 host=host, user=user, password=password, database=database
@@ -60,26 +59,51 @@ elif option == "🗄️ MySQL Database":
             st.session_state.conn = conn
             st.success("✅ Connected to MySQL!")
         except Error as e:
-            st.error(f"Connection Failed: {e}")
-            st.info("💡 Start MySQL/XAMPP first")
+            st.error(f"❌ Connection Failed: {e}")
 
-    # Bonus: Load Excel → MySQL
-    if col2.button("Load Excel to MySQL"):
-        uploaded = st.sidebar.file_uploader("Upload Excel to insert into DB", type=["xlsx"], key="db_upload")
-        if uploaded:
-            st.info("Inserting data into MySQL... (feature coming soon)")
+    # ====================== NEW: LOAD EXCEL TO MYSQL ======================
+    st.sidebar.header("📤 Load Excel → MySQL")
+    excel_to_db = st.sidebar.file_uploader("Upload Excel to insert into DB", type=["xlsx"], key="to_db")
+
+    if excel_to_db and st.sidebar.button("Insert Data into MySQL"):
+        try:
+            conn = mysql.connector.connect(
+                host=host, user=user, password=password, database=database
+            )
+            cursor = conn.cursor()
+
+            products = pd.read_excel(excel_to_db, sheet_name='products')
+            sales = pd.read_excel(excel_to_db, sheet_name='sales')
+            shipments = pd.read_excel(excel_to_db, sheet_name='shipments')
+
+            # Insert Products
+            for _, row in products.iterrows():
+                cursor.execute("""INSERT IGNORE INTO products VALUES (%s,%s,%s,%s,%s,%s,%s)""", tuple(row))
+            
+            # Insert Sales
+            for _, row in sales.iterrows():
+                cursor.execute("""INSERT IGNORE INTO sales VALUES (%s,%s,%s,%s,%s)""", tuple(row))
+            
+            # Insert Shipments
+            for _, row in shipments.iterrows():
+                cursor.execute("""INSERT IGNORE INTO shipments VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""", tuple(row))
+
+            conn.commit()
+            st.success("✅ Data successfully inserted into MySQL!")
+            data_loaded = True
+        except Exception as e:
+            st.error(f"Insert Error: {e}")
 
 if not data_loaded:
     st.warning("Please select a source and upload/connect")
     st.stop()
 
-# ====================== CLEANING ======================
+# ====================== DASHBOARD (Rest same) ======================
 sales_df['sale_date'] = pd.to_datetime(sales_df['sale_date'], errors='coerce')
 shipments_df['expected_delivery'] = pd.to_datetime(shipments_df['expected_delivery'], errors='coerce')
 shipments_df['actual_delivery'] = pd.to_datetime(shipments_df['actual_delivery'], errors='coerce')
 sales_df['revenue'] = pd.to_numeric(sales_df['revenue'], errors='coerce')
 
-# ====================== DASHBOARD ======================
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Total Revenue", f"${sales_df['revenue'].sum():,.0f}")
 col2.metric("⚠️ Delayed", len(shipments_df[shipments_df['actual_delivery'] > shipments_df['expected_delivery']]))
@@ -88,35 +112,21 @@ col4.metric("📦 Products", len(products_df))
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Sales", "📦 Inventory", "🚚 Shipments", "🔍 SQL Query"])
 
-with tab1:
+with tab1: 
     st.subheader("Monthly Revenue")
     sales_df['month'] = sales_df['sale_date'].dt.strftime('%Y-%m')
     monthly = sales_df.groupby('month')['revenue'].sum().reset_index()
     fig = px.bar(monthly, x='month', y='revenue')
     st.plotly_chart(fig, use_container_width=True)
 
-with tab2:
-    st.subheader("Low Stock")
-    low = products_df[products_df['stock_quantity'] < products_df['reorder_level']]
-    st.dataframe(low, use_container_width=True)
-
-with tab3:
-    st.subheader("Shipment Delays")
-    shipments_df['delay_days'] = (shipments_df['actual_delivery'] - shipments_df['expected_delivery']).dt.days
-    st.dataframe(shipments_df[['shipment_id','product_id','expected_delivery','actual_delivery','delay_days']], 
-                 use_container_width=True)
-
 with tab4:
     st.subheader("Custom SQL Query")
-    query = st.text_area("Write SQL Query", "SELECT * FROM sales LIMIT 10", height=100)
-    if st.button("Run Query"):
+    query = st.text_area("Write your SQL", "SELECT * FROM sales LIMIT 10")
+    if st.button("Run Query") and 'conn' in st.session_state:
         try:
-            if 'conn' in st.session_state:
-                result = pd.read_sql(query, st.session_state.conn)
-                st.dataframe(result, use_container_width=True)
-            else:
-                st.warning("Connect to MySQL first")
+            result = pd.read_sql(query, st.session_state.conn)
+            st.dataframe(result, use_container_width=True)
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Query Error: {e}")
 
-st.caption("Supply Chain Dashboard | MySQL Implemented")
+st.caption("Supply Chain Dashboard")
