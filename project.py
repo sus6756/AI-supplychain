@@ -50,9 +50,9 @@ elif option == "🗄️ MySQL Database":
         try:
             conn = mysql.connector.connect(
                 host="127.0.0.1",   # ONLY CHANGE DONE HERE
-                user=user, 
-                password=password, 
-                database=database,
+                user='root', 
+                password='code_RED', 
+                database='supply_chain',
                 port=3306
             )
             sales_df = pd.read_sql("SELECT * FROM sales", conn)
