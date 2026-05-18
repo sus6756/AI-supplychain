@@ -31,14 +31,7 @@ CREATE TABLE shipments (
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 
-CREATE TABLE sales (
-    sale_id INT PRIMARY KEY,
-    product_id INT,
-    sale_date DATE,
-    quantity_sold INT,
-    revenue DECIMAL(10,2),
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
-);
+
 
 SELECT product_id,
 SUM(quantity_sold) AS total_sales
