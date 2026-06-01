@@ -4,27 +4,33 @@ import plotly.express as px
 import mysql.connector
 from mysql.connector import Error
 
+# ====================== PAGE CONFIG ======================
 st.set_page_config(page_title="Supply Chain AI", layout="wide")
 st.title("🚛 AI Supply Chain Dashboard")
-st.markdown("**Excel + CSV + MySQL**")
+st.markdown("**Excel + CSV + MySQL Analytics System**")
 
+# ====================== SIDEBAR ======================
 option = st.sidebar.radio(
     "Select Data Source",
     ["📤 Excel Upload", "📁 CSV Upload", "🗄️ MySQL Database"]
 )
 
-sales_df = products_df = shipments_df = None
+sales_df = pd.DataFrame()
+products_df = pd.DataFrame()
+shipments_df = pd.DataFrame()
 data_loaded = False
 
 # ====================== EXCEL ======================
 if option == "📤 Excel Upload":
-    uploaded_file = st.sidebar.file_uploader("Upload Excel", type=["xlsx"])
-    if uploaded_file:
-        products_df = pd.read_excel(uploaded_file, sheet_name="products")
-        shipments_df = pd.read_excel(uploaded_file, sheet_name="shipments")
-        sales_df = pd.read_excel(uploaded_file, sheet_name="sales")
+    file = st.sidebar.file_uploader("Upload Excel file", type=["xlsx"])
+
+    if file:
+        products_df = pd.read_excel(file, sheet_name="products")
+        sales_df = pd.read_excel(file, sheet_name="sales")
+        shipments_df = pd.read_excel(file, sheet_name="shipments")
+
         data_loaded = True
-        st.success("✅ Excel Loaded!")
+        st.success("✅ Excel loaded successfully!")
 
 # ====================== CSV ======================
 elif option == "📁 CSV Upload":
@@ -36,8 +42,9 @@ elif option == "📁 CSV Upload":
         products_df = pd.read_csv(p)
         sales_df = pd.read_csv(s)
         shipments_df = pd.read_csv(sh)
+
         data_loaded = True
-        st.success("✅ CSV Loaded!")
+        st.success("✅ CSV files loaded!")
 
 # ====================== MYSQL ======================
 elif option == "🗄️ MySQL Database":
@@ -51,10 +58,10 @@ elif option == "🗄️ MySQL Database":
     if st.sidebar.button("Connect"):
         try:
             conn = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="code_RED",
-                database="supply_chain",
+                host=host,
+                user=user,
+                password=password,
+                database=database,
                 port=3306
             )
 
@@ -63,7 +70,68 @@ elif option == "🗄️ MySQL Database":
             shipments_df = pd.read_sql("SELECT * FROM shipments", conn)
 
             data_loaded = True
-            st.success("✅ Connected to MySQL!")
+            st.success("✅ Connected to MySQL successfully!")
+
+        except Error as e:
+            st.error(f"❌ MySQL Connection Failed: {e}")
+
+# ====================== STOP IF NO DATA ======================
+if not data_loaded:
+    st.warning("👈 Please upload data or connect to MySQL")
+    st.stop()
+
+# ====================== DATA CLEANING ======================
+sales_df['sale_date'] = pd.to_datetime(sales_df['sale_date'], errors='coerce')
+shipments_df['expected_delivery'] = pd.to_datetime(shipments_df['expected_delivery'], errors='coerce')
+shipments_df['actual_delivery'] = pd.to_datetime(shipments_df['actual_delivery'], errors='coerce')
+sales_df['revenue'] = pd.to_numeric(sales_df['revenue'], errors='coerce')
+
+# ====================== METRICS ======================
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("💰 Total Revenue", f"${sales_df['revenue'].sum():,.0f}")
+
+col2.metric(
+    "⚠️ Delayed Shipments",
+    len(shipments_df[shipments_df['actual_delivery'] > shipments_df['expected_delivery']])
+)
+
+col3.metric(
+    "📉 Low Stock",
+    len(products_df[products_df['stock_quantity'] < products_df['reorder_level']])
+)
+
+col4.metric("📦 Products", len(products_df))
+
+# ====================== TABS ======================
+tab1, tab2, tab3 = st.tabs(["📊 Sales", "📦 Inventory", "🚚 Shipments"])
+
+# ====================== SALES TAB ======================
+with tab1:
+    st.subheader("Monthly Revenue")
+
+    sales_df['month'] = sales_df['sale_date'].dt.strftime('%Y-%m')
+    monthly = sales_df.groupby('month')['revenue'].sum().reset_index()
+
+    fig = px.bar(monthly, x='month', y='revenue')
+    st.plotly_chart(fig, use_container_width=True)
+
+# ====================== SHIPMENTS TAB ======================
+with tab3:
+    st.subheader("Shipment Delays")
+
+    shipments_df['delay_days'] = (
+        shipments_df['actual_delivery'] - shipments_df['expected_delivery']
+    ).dt.days
+
+    st.dataframe(
+        shipments_df[['shipment_id', 'product_id',
+                       'expected_delivery', 'actual_delivery', 'delay_days']],
+        use_container_width=True
+    )
+
+# ====================== FOOTER ======================
+st.caption("🚛 Supply Chain AI Dashboard")            st.success("✅ Connected to MySQL!")
 
         except Error as e:
             st.error(f"❌ MySQL Connection Failed: {e}")
