@@ -48,7 +48,7 @@ elif option == "🗄️ MySQL Database":
 
     if st.sidebar.button("🔗 Connect to MySQL"):
         try:
-            conn = mysql.connector.connect(
+            mydb = mysql.connector.connect(
                 host="localhost",   
                 user='root', 
                 password='code_RED', 
