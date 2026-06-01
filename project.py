@@ -98,7 +98,7 @@ with tab3:
     st.dataframe(shipments_df[['shipment_id', 'product_id', 'expected_delivery', 'actual_delivery', 'delay_days']], 
                  use_container_width=True)
 
-st.caption("Supply Chain Project Dashboard") st.stop()
+st.caption("Supply Chain Project Dashboard")st.stop()
 # ====================== DASHBOARD ======================
 sales_df['sale_date'] = pd.to_datetime(sales_df['sale_date'], errors='coerce')
 shipments_df['expected_delivery'] = pd.to_datetime(shipments_df['expected_delivery'], errors='coerce')
