@@ -7,7 +7,7 @@ st.set_page_config(page_title="Supply Chain AI", layout="wide")
 st.title("🚛 AI Supply Chain Dashboard")
 st.markdown("**Excel + CSV + MySQL**")
 option = st.sidebar.radio("Select Data Source",
-                         ["📤 Excel Upload", "📁 CSV Upload", "🗄️ MySQL Database"])
+                         "📤 Excel Upload", "📁 CSV Upload", "🗄️ MySQL Database"])
 sales_df = products_df = shipments_df = None
 data_loaded = False
 # ====================== EXCEL ======================
