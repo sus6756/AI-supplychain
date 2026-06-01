@@ -63,7 +63,40 @@ elif option == "🗄️ MySQL Database":
             st.success("✅ Successfully Connected to MySQL!")
         except Error as e:
             st.error(f"❌ Connection Failed: {e}")
-            st.info("💡 Make sure MySQL server is running (XAMPP / Homebrew)")
+            st.info("💡 Tip: Open XAMPP and start MySQL server")
+
+if not data_loaded:
+    st.warning("👈 Please upload file or connect to MySQL")
+    st.stop()
+
+# ====================== DASHBOARD ======================
+sales_df['sale_date'] = pd.to_datetime(sales_df['sale_date'], errors='coerce')
+shipments_df['expected_delivery'] = pd.to_datetime(shipments_df['expected_delivery'], errors='coerce')
+shipments_df['actual_delivery'] = pd.to_datetime(shipments_df['actual_delivery'], errors='coerce')
+sales_df['revenue'] = pd.to_numeric(sales_df['revenue'], errors='coerce')
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("💰 Total Revenue", f"${sales_df['revenue'].sum():,.0f}")
+col2.metric("⚠️ Delayed Shipments", len(shipments_df[shipments_df['actual_delivery'] > shipments_df['expected_delivery']]))
+col3.metric("📉 Low Stock", len(products_df[products_df['stock_quantity'] < products_df['reorder_level']]))
+col4.metric("📦 Products", len(products_df))
+
+tab1, tab2, tab3 = st.tabs(["📊 Sales", "📦 Inventory", "🚚 Shipments"])
+
+with tab1:
+    st.subheader("Monthly Revenue")
+    sales_df['month'] = sales_df['sale_date'].dt.strftime('%Y-%m')
+    monthly = sales_df.groupby('month')['revenue'].sum().reset_index()
+    fig = px.bar(monthly, x='month', y='revenue')
+    st.plotly_chart(fig, use_container_width=True)
+
+with tab3:
+    st.subheader("Shipment Delays")
+    shipments_df['delay_days'] = (shipments_df['actual_delivery'] - shipments_df['expected_delivery']).dt.days
+    st.dataframe(shipments_df[['shipment_id', 'product_id', 'expected_delivery', 'actual_delivery', 'delay_days']], 
+                 use_container_width=True)
+
+st.caption("Supply Chain Project Dashboard")            st.info("💡 Make sure MySQL server is running (XAMPP / Homebrew)")
 
 if not data_loaded:
     st.warning("👈 Please upload file or connect to MySQL")
