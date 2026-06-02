@@ -173,9 +173,9 @@ def auth_page():
 # 5. DASHBOARD
 # ====================================================================
 def main_dashboard():
-    st.sidebar.title("Control Panel")
+    st.sidebar.title("👾Database Dashboard👾")
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("Logout👈"):
         st.session_state.logged_in = False
         st.rerun()
 
@@ -220,18 +220,18 @@ def main_dashboard():
                 len(products_df[products_df["stock_quantity"] < products_df["reorder_level"]]))
     col4.metric("Products", len(products_df))
 
-    st.subheader("Revenue Trends")
+    st.subheader("💰Revenue Trends📊")
     sales_df["sale_date"] = pd.to_datetime(sales_df["sale_date"])
     monthly = sales_df.groupby(sales_df["sale_date"].dt.month)["revenue"].sum().reset_index()
     st.plotly_chart(px.bar(monthly, x="sale_date", y="revenue"))
 
-    st.subheader("Inventory")
+    st.subheader("💼Inventory")
     st.dataframe(products_df)
 
-    st.subheader("Shipments")
+    st.subheader("🚚Shipments🚛")
     st.dataframe(shipments_df)
 
-    st.subheader("MySQL Console")
+    st.subheader("🗿MySQL Console")
 
     query = st.text_area("SQL Query", "SELECT * FROM users;")
 
