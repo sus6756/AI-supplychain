@@ -1,6 +1,6 @@
 import io
 import time
-import requests
+import smtplib
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -310,31 +310,22 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
 # ====================================================================
 def send_email(to_addr: str, subject: str, html_body: str) -> bool:
     try:
-        api_key = st.secrets["BREVO_API_KEY"]
-        resp = requests.post(
-            "https://api.brevo.com/v3/smtp/email",
-            headers={
-                "accept": "application/json",
-                "api-key": api_key,
-                "content-type": "application/json",
-            },
-            json={
-                "sender":      {"name": "Traqify", "email": "sashankmidhun@gmail.com"},
-                "to":          [{"email": to_addr}],
-                "subject":     subject,
-                "htmlContent": html_body,
-            },
-            timeout=10,
-        )
-        if resp.status_code in (200, 201, 202):
-            return True
-        else:
-            st.error(f"Email error: {resp.status_code} — {resp.text}")
-            return False
+        sender  = st.secrets["EMAIL_SENDER"]
+        app_pwd = st.secrets["EMAIL_APP_PASSWORD"]
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Traqify <{sender}>"
+        msg["To"]      = to_addr
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, app_pwd)
+            server.sendmail(sender, to_addr, msg.as_string())
+        return True
     except Exception as e:
         st.error(f"Email error: {e}")
         return False
-def email_template(title: str, body_html: str) -> str:
     return f"""
     <html><body style="margin:0;padding:0;background:#0f0e17;font-family:Inter,sans-serif;">
     <div style="max-width:600px;margin:30px auto;background:linear-gradient(135deg,#1e1b4b,#1a1a2e);
