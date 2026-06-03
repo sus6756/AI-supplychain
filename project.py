@@ -864,6 +864,34 @@ def main_dashboard():
     # TAB 7 — NOTIFICATIONS
     # ─────────────────────────────────────────────────────────────────
     with tab7:
+        # ── Admin password gate ──────────────────────────────────────
+        if "notif_unlocked" not in st.session_state:
+            st.session_state.notif_unlocked = False
+
+        if not st.session_state.notif_unlocked:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,rgba(30,27,75,0.9),rgba(17,24,39,0.95));
+                border:1px solid rgba(99,102,241,0.35);border-radius:20px;
+                padding:2.5rem 2rem;max-width:420px;margin:2rem auto;text-align:center;
+                animation:fadeInUp 0.6s ease both;
+                box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 40px rgba(99,102,241,0.1);">
+                <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔒</div>
+                <h3 style="color:#e2e8f0;margin:0.3rem 0;">Admin Access Required</h3>
+                <p style="color:#64748b;font-size:0.85rem;margin:0.5rem 0 1.5rem;">
+                    This section is restricted. Enter the admin password to continue.
+                </p>
+            </div>""", unsafe_allow_html=True)
+            _, mid_col, _ = st.columns([1, 1.2, 1])
+            with mid_col:
+                pwd = st.text_input("🔑 Admin Password", type="password", key="notif_pwd")
+                if st.button("Unlock →", use_container_width=True, key="notif_unlock_btn"):
+                    if pwd == st.secrets.get("NOTIF_PASSWORD", ""):
+                        st.session_state.notif_unlocked = True
+                        st.rerun()
+                    else:
+                        st.error("❌ Incorrect password")
+            st.stop()
+
         st.markdown("### 📧 Email Notifications")
         st.markdown("""
         <p style="color:#94a3b8;margin-bottom:1.5rem;">
