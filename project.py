@@ -326,12 +326,14 @@ def send_email(to_addr: str, subject: str, html_body: str) -> bool:
     except Exception as e:
         st.error(f"Email error: {e}")
         return False
+
+def email_template(title: str, body_html: str) -> str:
     return f"""
     <html><body style="margin:0;padding:0;background:#0f0e17;font-family:Inter,sans-serif;">
     <div style="max-width:600px;margin:30px auto;background:linear-gradient(135deg,#1e1b4b,#1a1a2e);
         border:1px solid rgba(99,102,241,0.3);border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 32px;">
-            <h1 style="margin:0;color:#fff;font-size:1.4rem;">🚛 Traqify</h1>
+            <h1 style="margin:0;color:#fff;font-size:1.4rem;">📦 Traqify</h1>
             <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:0.85rem;">Track · Analyze · Notify</p>
         </div>
         <div style="padding:28px 32px;">
