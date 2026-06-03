@@ -310,19 +310,23 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
 # ====================================================================
 def send_email(to_addr: str, subject: str, html_body: str) -> bool:
     try:
-        api_key = st.secrets["RESEND_API_KEY"]
+        api_key = st.secrets["BREVO_API_KEY"]
         resp = requests.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": api_key,
+                "content-type": "application/json",
+            },
             json={
-                "from": "Traqify <onboarding@resend.dev>",
-                "to":   [to_addr],
-                "subject": subject,
-                "html": html_body,
+                "sender":      {"name": "Traqify", "email": "sashankmidhun@gmail.com"},
+                "to":          [{"email": to_addr}],
+                "subject":     subject,
+                "htmlContent": html_body,
             },
             timeout=10,
         )
-        if resp.status_code in (200, 201):
+        if resp.status_code in (200, 201, 202):
             return True
         else:
             st.error(f"Email error: {resp.status_code} — {resp.text}")
@@ -330,7 +334,6 @@ def send_email(to_addr: str, subject: str, html_body: str) -> bool:
     except Exception as e:
         st.error(f"Email error: {e}")
         return False
-
 def email_template(title: str, body_html: str) -> str:
     return f"""
     <html><body style="margin:0;padding:0;background:#0f0e17;font-family:Inter,sans-serif;">
