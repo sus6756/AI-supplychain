@@ -13,7 +13,7 @@ from mysql.connector import Error
 # ====================================================================
 # 1. PAGE & SESSION STATE INITIALIZATION
 # ====================================================================
-st.set_page_config(page_title="Traqify", layout="wide", page_icon="🚛")
+st.set_page_config(page_title="Traqify", layout="wide", page_icon="📦")
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -418,8 +418,8 @@ def send_summary_email(to_addr: str, total_rev: float, delayed: int, low_stock: 
 def auth_page():
     st.markdown("""
     <div style="text-align:center; animation:fadeInDown 0.8s ease both; padding:2rem 0 1rem 0;">
-        <div style="font-size:3.5rem;">🚛</div>
-        <h1 style="font-size:2.4rem; margin:0.3rem 0;">Traqify</h1>
+        <div style="font-size:4rem;filter:drop-shadow(0 0 12px rgba(99,102,241,0.7));">📦</div>
+        <h1 style="font-size:3rem; margin:0.3rem 0; font-weight:900; letter-spacing:2px;">Traqify</h1>
         <p style="color:#94a3b8; font-size:1rem; margin:0;">Track · Analyze · Notify</p>
     </div>
     """, unsafe_allow_html=True)
@@ -493,9 +493,9 @@ def main_dashboard():
     # ── Sidebar ──────────────────────────────────────────────────────
     st.sidebar.markdown("""
     <div style="text-align:center;padding:1rem 0 0.5rem 0;">
-        <div style="font-size:2.5rem;">🚛</div>
-        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1rem;">Traqify</h3>
-        <p style="color:#475569;font-size:0.75rem;margin:0;">Traqify Dashboard</p>
+        <div style="font-size:3rem;filter:drop-shadow(0 0 8px rgba(99,102,241,0.6));">📦</div>
+        <h3 style="color:#a5b4fc;margin:0.4rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
+        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Dashboard</p>
     </div>
     <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
     """, unsafe_allow_html=True)
