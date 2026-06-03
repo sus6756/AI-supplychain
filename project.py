@@ -895,6 +895,7 @@ def main_dashboard():
                 st.markdown("<p style='color:#475569;font-size:0.8rem;margin-bottom:0.5rem;'>Don\'t have access?</p>", unsafe_allow_html=True)
                 if st.button("�� Request Admin Access", use_container_width=True, key="request_access_btn"):
                     requester = st.session_state.get("username", "Unknown user")
+                    requester_email = st.session_state.get("user_email", "Not saved")
                     body = f"""
                     <p style="color:#94a3b8;">A user has requested admin access to the Notifications tab on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
                     <table style="margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;width:100%;border-collapse:collapse;">
@@ -906,9 +907,13 @@ def main_dashboard():
                             <td style="padding:8px 14px;color:#94a3b8;">Username</td>
                             <td style="padding:8px 14px;color:#e2e8f0;">{requester}</td>
                         </tr>
+                        <tr>
+                            <td style="padding:8px 14px;color:#94a3b8;">Email</td>
+                            <td style="padding:8px 14px;color:#e2e8f0;">{requester_email}</td>
+                        </tr>
                     </table>
                     <p style="color:#64748b;font-size:0.82rem;margin-top:16px;">
-                        Share the admin password with them if you approve this request.
+                        Reply to their email or share the admin password if you approve this request.
                     </p>"""
                     html = email_template("🔐 Admin Access Request", body)
                     ok = send_email("sashankmidhun@gmail.com", f"🔐 Admin Access Request from {requester}", html)
