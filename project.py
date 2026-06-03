@@ -450,6 +450,7 @@ def auth_page():
                         time.sleep(0.6)
                         st.session_state.logged_in = True
                         st.session_state.username = username
+                        st.session_state.notif_unlocked = False
                         st.session_state.user_email = row[1] or ""
                         st.rerun()
                     else:
