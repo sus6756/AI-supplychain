@@ -361,7 +361,7 @@ def send_low_stock_alert(to_addr: str, low_df):
             <th style="padding:10px 12px;color:#a5b4fc;">Reorder Level</th>
             <th style="padding:10px 12px;color:#a5b4fc;">Units Needed</th>
         </tr></thead><tbody>{rows}</tbody></table>"""
-    return send_email(to_addr, f"\u26a0\ufe0f Low Stock Alert \u2014 {len(low_df)} Products", email_template("\u26a0\ufe0f Low Stock Alert", body))
+    return send_email(to_addr, f"⚠️ Low Stock Alert — {len(low_df)} Products", email_template("⚠️ Low Stock Alert", body))
 
 def send_delay_alert(to_addr: str, delayed_df):
     rows = ""
@@ -380,7 +380,7 @@ def send_delay_alert(to_addr: str, delayed_df):
             <th style="padding:10px 12px;color:#a5b4fc;">Expected</th>
             <th style="padding:10px 12px;color:#a5b4fc;">Delay</th>
         </tr></thead><tbody>{rows}</tbody></table>"""
-    return send_email(to_addr, f"\U0001f6a8 Shipment Delay Alert \u2014 {len(delayed_df)} Delayed", email_template("\U0001f6a8 Shipment Delay Alert", body))
+    return send_email(to_addr, f"🚨 Shipment Delay Alert — {len(delayed_df)} Delayed", email_template("🚨 Shipment Delay Alert", body))
 
 def send_summary_email(to_addr: str, total_rev: float, delayed: int, low_stock: int, products: int):
     body = f"""<p style="color:#94a3b8;">Your current supply chain summary:</p>
@@ -402,7 +402,7 @@ def send_summary_email(to_addr: str, total_rev: float, delayed: int, low_stock: 
             <div style="color:#4ade80;font-size:1.6rem;font-weight:700;">{products}</div>
         </div>
     </div>"""
-    return send_email(to_addr, "\U0001f4ca Your Supply Chain Summary Report", email_template("\U0001f4ca Dashboard Summary", body))
+    return send_email(to_addr, "📊 Your Supply Chain Summary Report", email_template("📊 Dashboard Summary", body))
 
 
 
