@@ -258,7 +258,6 @@ CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(15,14,23,0.6)",
     font=dict(family="Inter", color="#e2e8f0"),
-    margin=dict(l=10, r=10, t=40, b=10),
 )
 
 def to_excel_bytes(dfs: dict) -> bytes:
@@ -508,7 +507,7 @@ def main_dashboard():
             template="plotly_dark",
             labels={"month":"Month","revenue":"Revenue ($)"},
         )
-        fig_bar.update_layout(**CHART_LAYOUT)
+        fig_bar.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
         fig_bar.update_traces(marker_line_width=0)
         st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -523,7 +522,7 @@ def main_dashboard():
                 labels={"month_dt": "Month", "revenue": "Revenue ($)", "type": ""},
             )
             fig_fc.update_traces(line=dict(width=2.5))
-            fig_fc.update_layout(**CHART_LAYOUT, showlegend=True)
+            fig_fc.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
             st.plotly_chart(fig_fc, use_container_width=True)
             forecast_only = fc_df[fc_df["type"] == "Forecast"][["month_dt","revenue"]].copy()
             forecast_only.columns = ["Month", "Forecasted Revenue ($)"]
@@ -583,7 +582,7 @@ def main_dashboard():
                 color_continuous_scale=["#ef4444","#f59e0b","#22c55e"],
                 template="plotly_dark", title="Bottom 15 Stock Levels",
             )
-            fig_stock.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=80))
+            fig_stock.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=80), showlegend=False)
             st.plotly_chart(fig_stock, use_container_width=True)
 
         with col_b:
@@ -596,7 +595,7 @@ def main_dashboard():
                     hole=0.55, template="plotly_dark", title="Products by Category",
                     color_discrete_sequence=px.colors.sequential.Plasma_r,
                 )
-                fig_donut.update_layout(**CHART_LAYOUT, showlegend=True)
+                fig_donut.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
                 st.plotly_chart(fig_donut, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────
@@ -635,7 +634,7 @@ def main_dashboard():
                 template="plotly_dark", title="Expected vs Actual Delivery",
                 labels={"expected_delivery":"Expected","actual_delivery":"Actual","delay_days":"Delay (days)"},
             )
-            fig_scatter.update_layout(**CHART_LAYOUT)
+            fig_scatter.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
             st.plotly_chart(fig_scatter, use_container_width=True)
         with c_b:
             delay_hist = px.histogram(
@@ -645,7 +644,7 @@ def main_dashboard():
                 template="plotly_dark", title="Delay Days Distribution",
                 labels={"delay_days":"Delay (days)"},
             )
-            delay_hist.update_layout(**CHART_LAYOUT)
+            delay_hist.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
             st.plotly_chart(delay_hist, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────
@@ -677,7 +676,7 @@ def main_dashboard():
                 text="on_time_rate",
             )
             fig_score.update_traces(texttemplate="%{text}%", textposition="outside")
-            fig_score.update_layout(**CHART_LAYOUT)
+            fig_score.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
             st.plotly_chart(fig_score, use_container_width=True)
             st.dataframe(score_df, use_container_width=True, hide_index=True)
         else:
