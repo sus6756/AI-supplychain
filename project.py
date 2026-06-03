@@ -296,6 +296,107 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
     return pd.concat([monthly, forecast_df], ignore_index=True)
 
 # ====================================================================
+# 5. EMAIL NOTIFICATIONS
+# ====================================================================
+def send_email(to_addr: str, subject: str, html_body: str) -> bool:
+    try:
+        sender  = st.secrets["EMAIL_SENDER"]
+        app_pwd = st.secrets["EMAIL_APP_PASSWORD"]
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Supply Chain AI <{sender}>"
+        msg["To"]      = to_addr
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, app_pwd)
+            server.sendmail(sender, to_addr, msg.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Email error: {e}")
+        return False
+
+def email_template(title: str, body_html: str) -> str:
+    return f"""
+    <html><body style="margin:0;padding:0;background:#0f0e17;font-family:Inter,sans-serif;">
+    <div style="max-width:600px;margin:30px auto;background:linear-gradient(135deg,#1e1b4b,#1a1a2e);
+        border:1px solid rgba(99,102,241,0.3);border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 32px;">
+            <h1 style="margin:0;color:#fff;font-size:1.4rem;">🚛 Supply Chain AI</h1>
+            <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:0.85rem;">Enterprise Intelligence Platform</p>
+        </div>
+        <div style="padding:28px 32px;">
+            <h2 style="color:#a5b4fc;margin:0 0 16px;">{title}</h2>
+            {body_html}
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid rgba(99,102,241,0.2);text-align:center;">
+            <p style="color:#475569;font-size:0.75rem;margin:0;">Supply Chain AI Enterprise · Automated Alert System</p>
+        </div>
+    </div></body></html>"""
+
+def send_low_stock_alert(to_addr: str, low_df):
+    rows = ""
+    for _, r in low_df.iterrows():
+        name = r.get("product_name", r.get("product_id", "N/A"))
+        rows += f"""<tr>
+            <td style="padding:8px 12px;color:#e2e8f0;">{name}</td>
+            <td style="padding:8px 12px;color:#f87171;text-align:center;">{r["stock_quantity"]}</td>
+            <td style="padding:8px 12px;color:#a5b4fc;text-align:center;">{r["reorder_level"]}</td>
+            <td style="padding:8px 12px;color:#fb923c;text-align:center;">{r["reorder_level"] - r["stock_quantity"]}</td>
+        </tr>"""
+    body = f"""<p style="color:#94a3b8;">These products are below reorder level:</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
+        <thead><tr style="background:rgba(99,102,241,0.2);">
+            <th style="padding:10px 12px;color:#a5b4fc;text-align:left;">Product</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Stock</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Reorder Level</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Units Needed</th>
+        </tr></thead><tbody>{rows}</tbody></table>"""
+    return send_email(to_addr, f"\u26a0\ufe0f Low Stock Alert \u2014 {len(low_df)} Products", email_template("\u26a0\ufe0f Low Stock Alert", body))
+
+def send_delay_alert(to_addr: str, delayed_df):
+    rows = ""
+    for _, r in delayed_df.iterrows():
+        rows += f"""<tr>
+            <td style="padding:8px 12px;color:#e2e8f0;">{r.get("shipment_id","N/A")}</td>
+            <td style="padding:8px 12px;color:#e2e8f0;">{r.get("product_id","N/A")}</td>
+            <td style="padding:8px 12px;color:#94a3b8;">{str(r.get("expected_delivery",""))[:10]}</td>
+            <td style="padding:8px 12px;color:#f87171;text-align:center;">{int(r.get("delay_days",0))} days</td>
+        </tr>"""
+    body = f"""<p style="color:#94a3b8;">{len(delayed_df)} shipments are currently delayed:</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
+        <thead><tr style="background:rgba(99,102,241,0.2);">
+            <th style="padding:10px 12px;color:#a5b4fc;text-align:left;">Shipment ID</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Product ID</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Expected</th>
+            <th style="padding:10px 12px;color:#a5b4fc;">Delay</th>
+        </tr></thead><tbody>{rows}</tbody></table>"""
+    return send_email(to_addr, f"\U0001f6a8 Shipment Delay Alert \u2014 {len(delayed_df)} Delayed", email_template("\U0001f6a8 Shipment Delay Alert", body))
+
+def send_summary_email(to_addr: str, total_rev: float, delayed: int, low_stock: int, products: int):
+    body = f"""<p style="color:#94a3b8;">Your current supply chain summary:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+        <div style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:16px;text-align:center;">
+            <div style="color:#a5b4fc;font-size:0.75rem;text-transform:uppercase;">Total Revenue</div>
+            <div style="color:#fff;font-size:1.6rem;font-weight:700;">${total_rev:,.0f}</div>
+        </div>
+        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px;text-align:center;">
+            <div style="color:#fca5a5;font-size:0.75rem;text-transform:uppercase;">Delayed Shipments</div>
+            <div style="color:#f87171;font-size:1.6rem;font-weight:700;">{delayed}</div>
+        </div>
+        <div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:10px;padding:16px;text-align:center;">
+            <div style="color:#fde68a;font-size:0.75rem;text-transform:uppercase;">Low Stock Items</div>
+            <div style="color:#fbbf24;font-size:1.6rem;font-weight:700;">{low_stock}</div>
+        </div>
+        <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px;text-align:center;">
+            <div style="color:#86efac;font-size:0.75rem;text-transform:uppercase;">Total Products</div>
+            <div style="color:#4ade80;font-size:1.6rem;font-weight:700;">{products}</div>
+        </div>
+    </div>"""
+    return send_email(to_addr, "\U0001f4ca Your Supply Chain Summary Report", email_template("\U0001f4ca Dashboard Summary", body))
+
+
+
+# ====================================================================
 # 5. AUTH PAGE
 # ====================================================================
 def auth_page():
@@ -738,6 +839,100 @@ def main_dashboard():
                     st.dataframe(df, use_container_width=True)
                 except Error as e:
                     st.error(f"❌ Query Error: {e}")
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 7 — NOTIFICATIONS
+    # ─────────────────────────────────────────────────────────────────
+    with tab7:
+        st.markdown("### 📧 Email Notifications")
+        st.markdown("""
+        <p style="color:#94a3b8;margin-bottom:1.5rem;">
+            Enter your email to receive automated alerts for low stock, shipment delays, and summary reports.
+        </p>""", unsafe_allow_html=True)
+
+        email_input = st.text_input("📬 Your Email Address", placeholder="you@example.com")
+
+        if email_input:
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+            st.markdown("#### Choose what to send:")
+
+            col_n1, col_n2, col_n3 = st.columns(3)
+
+            with col_n1:
+                st.markdown("""
+                <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                    <div style="font-size:1.8rem;">⚠️</div>
+                    <div style="color:#f87171;font-weight:600;margin-top:4px;">Low Stock Alert</div>
+                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                        Sends a list of all products below reorder level
+                    </div>
+                </div>""", unsafe_allow_html=True)
+                low_stock_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                if st.button("📤 Send Low Stock Alert", use_container_width=True, key="btn_stock"):
+                    if low_stock_df.empty:
+                        st.info("No low stock items to report.")
+                    else:
+                        with st.spinner("Sending..."):
+                            ok = send_low_stock_alert(email_input, low_stock_df)
+                        if ok:
+                            st.success(f"✅ Sent to {email_input}")
+
+            with col_n2:
+                st.markdown("""
+                <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);
+                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                    <div style="font-size:1.8rem;">🚨</div>
+                    <div style="color:#fb923c;font-weight:600;margin-top:4px;">Delay Alert</div>
+                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                        Sends details of all delayed shipments
+                    </div>
+                </div>""", unsafe_allow_html=True)
+                delayed_df = shipments_df[shipments_df["delay_days"] > 0]
+                if st.button("📤 Send Delay Alert", use_container_width=True, key="btn_delay"):
+                    if delayed_df.empty:
+                        st.info("No delayed shipments to report.")
+                    else:
+                        with st.spinner("Sending..."):
+                            ok = send_delay_alert(email_input, delayed_df)
+                        if ok:
+                            st.success(f"✅ Sent to {email_input}")
+
+            with col_n3:
+                st.markdown("""
+                <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
+                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                    <div style="font-size:1.8rem;">📊</div>
+                    <div style="color:#a5b4fc;font-weight:600;margin-top:4px;">Summary Report</div>
+                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                        Full dashboard KPI summary in your inbox
+                    </div>
+                </div>""", unsafe_allow_html=True)
+                if st.button("📤 Send Summary Report", use_container_width=True, key="btn_summary"):
+                    with st.spinner("Sending..."):
+                        ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
+                    if ok:
+                        st.success(f"✅ Sent to {email_input}")
+
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="background:rgba(15,14,23,0.6);border:1px solid rgba(99,102,241,0.15);
+                border-radius:10px;padding:1rem 1.2rem;">
+                <p style="color:#475569;font-size:0.8rem;margin:0;">
+                    ⚙️ <strong style="color:#64748b;">Setup required:</strong>
+                    Add <code style="color:#a5b4fc;">EMAIL_SENDER</code> and
+                    <code style="color:#a5b4fc;">EMAIL_APP_PASSWORD</code> to your
+                    Streamlit secrets to enable sending. Use a Gmail account with an App Password
+                    (Google Account → Security → 2FA → App Passwords).
+                </p>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);
+                border-radius:12px;padding:2rem;text-align:center;">
+                <div style="font-size:2.5rem;margin-bottom:0.5rem;">📬</div>
+                <p style="color:#64748b;margin:0;">Enter your email address above to get started.</p>
+            </div>""", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
