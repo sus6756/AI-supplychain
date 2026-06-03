@@ -890,6 +890,31 @@ def main_dashboard():
                         st.rerun()
                     else:
                         st.error("❌ Incorrect password")
+
+                st.markdown("<div style='text-align:center;margin-top:1rem;'>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#475569;font-size:0.8rem;margin-bottom:0.5rem;'>Don\'t have access?</p>", unsafe_allow_html=True)
+                if st.button("�� Request Admin Access", use_container_width=True, key="request_access_btn"):
+                    requester = st.session_state.get("username", "Unknown user")
+                    body = f"""
+                    <p style="color:#94a3b8;">A user has requested admin access to the Notifications tab on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
+                    <table style="margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;width:100%;border-collapse:collapse;">
+                        <tr style="background:rgba(99,102,241,0.2);">
+                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Field</th>
+                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Value</th>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 14px;color:#94a3b8;">Username</td>
+                            <td style="padding:8px 14px;color:#e2e8f0;">{requester}</td>
+                        </tr>
+                    </table>
+                    <p style="color:#64748b;font-size:0.82rem;margin-top:16px;">
+                        Share the admin password with them if you approve this request.
+                    </p>"""
+                    html = email_template("🔐 Admin Access Request", body)
+                    ok = send_email("sashankmidhun@gmail.com", f"🔐 Admin Access Request from {requester}", html)
+                    if ok:
+                        st.success("✅ Request sent! The admin will get back to you.")
+                st.markdown("</div>", unsafe_allow_html=True)
             st.stop()
 
         st.markdown("### 📧 Email Notifications")
