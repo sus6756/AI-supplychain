@@ -915,12 +915,11 @@ def main_dashboard():
                     if ok:
                         st.success("✅ Request sent! The admin will get back to you.")
                 st.markdown("</div>", unsafe_allow_html=True)
-            st.stop()
 
         st.markdown("### 📧 Email Notifications")
         st.markdown("""
         <p style="color:#94a3b8;margin-bottom:1.5rem;">
-            Enter your email to receive automated alerts for low stock, shipment delays, and summary reports.
+            Save your email below to receive alerts. Admin access required to send reports.
         </p>""", unsafe_allow_html=True)
 
         # Pre-fill from saved email, allow update
@@ -946,65 +945,76 @@ def main_dashboard():
 
         if email_input:
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown("#### Choose what to send:")
 
-            col_n1, col_n2, col_n3 = st.columns(3)
-
-            with col_n1:
+            # Admin-only send section
+            if not st.session_state.notif_unlocked:
                 st.markdown("""
-                <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
-                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                    <div style="font-size:1.8rem;">⚠️</div>
-                    <div style="color:#f87171;font-weight:600;margin-top:4px;">Low Stock Alert</div>
-                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                        Sends a list of all products below reorder level
-                    </div>
+                <div style="background:rgba(99,102,241,0.08);border:1px dashed rgba(99,102,241,0.3);
+                    border-radius:12px;padding:1.2rem;text-align:center;">
+                    <div style="font-size:1.5rem;">🔒</div>
+                    <p style="color:#64748b;margin:0.4rem 0 0;font-size:0.85rem;">
+                        Enter the admin password above to send alerts and reports.
+                    </p>
                 </div>""", unsafe_allow_html=True)
-                low_stock_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
-                if st.button("📤 Send Low Stock Alert", use_container_width=True, key="btn_stock"):
-                    if low_stock_df.empty:
-                        st.info("No low stock items to report.")
-                    else:
+            else:
+                st.markdown("#### Choose what to send:")
+                col_n1, col_n2, col_n3 = st.columns(3)
+
+                with col_n1:
+                    st.markdown("""
+                    <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                        <div style="font-size:1.8rem;">⚠️</div>
+                        <div style="color:#f87171;font-weight:600;margin-top:4px;">Low Stock Alert</div>
+                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                            Sends a list of all products below reorder level
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+                    low_stock_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                    if st.button("📤 Send Low Stock Alert", use_container_width=True, key="btn_stock"):
+                        if low_stock_df.empty:
+                            st.info("No low stock items to report.")
+                        else:
+                            with st.spinner("Sending..."):
+                                ok = send_low_stock_alert(email_input, low_stock_df)
+                            if ok:
+                                st.success(f"✅ Sent to {email_input}")
+
+                with col_n2:
+                    st.markdown("""
+                    <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);
+                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                        <div style="font-size:1.8rem;">🚨</div>
+                        <div style="color:#fb923c;font-weight:600;margin-top:4px;">Delay Alert</div>
+                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                            Sends details of all delayed shipments
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+                    delayed_df = shipments_df[shipments_df["delay_days"] > 0]
+                    if st.button("📤 Send Delay Alert", use_container_width=True, key="btn_delay"):
+                        if delayed_df.empty:
+                            st.info("No delayed shipments to report.")
+                        else:
+                            with st.spinner("Sending..."):
+                                ok = send_delay_alert(email_input, delayed_df)
+                            if ok:
+                                st.success(f"✅ Sent to {email_input}")
+
+                with col_n3:
+                    st.markdown("""
+                    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
+                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
+                        <div style="font-size:1.8rem;">📊</div>
+                        <div style="color:#a5b4fc;font-weight:600;margin-top:4px;">Summary Report</div>
+                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
+                            Full dashboard KPI summary in your inbox
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+                    if st.button("📤 Send Summary Report", use_container_width=True, key="btn_summary"):
                         with st.spinner("Sending..."):
-                            ok = send_low_stock_alert(email_input, low_stock_df)
+                            ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
                         if ok:
                             st.success(f"✅ Sent to {email_input}")
-
-            with col_n2:
-                st.markdown("""
-                <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);
-                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                    <div style="font-size:1.8rem;">🚨</div>
-                    <div style="color:#fb923c;font-weight:600;margin-top:4px;">Delay Alert</div>
-                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                        Sends details of all delayed shipments
-                    </div>
-                </div>""", unsafe_allow_html=True)
-                delayed_df = shipments_df[shipments_df["delay_days"] > 0]
-                if st.button("📤 Send Delay Alert", use_container_width=True, key="btn_delay"):
-                    if delayed_df.empty:
-                        st.info("No delayed shipments to report.")
-                    else:
-                        with st.spinner("Sending..."):
-                            ok = send_delay_alert(email_input, delayed_df)
-                        if ok:
-                            st.success(f"✅ Sent to {email_input}")
-
-            with col_n3:
-                st.markdown("""
-                <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
-                    border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                    <div style="font-size:1.8rem;">📊</div>
-                    <div style="color:#a5b4fc;font-weight:600;margin-top:4px;">Summary Report</div>
-                    <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                        Full dashboard KPI summary in your inbox
-                    </div>
-                </div>""", unsafe_allow_html=True)
-                if st.button("📤 Send Summary Report", use_container_width=True, key="btn_summary"):
-                    with st.spinner("Sending..."):
-                        ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
-                    if ok:
-                        st.success(f"✅ Sent to {email_input}")
 
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
             st.markdown("""
