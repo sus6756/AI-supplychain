@@ -1,3 +1,4 @@
+# Traqify v2.0
 import io
 import time
 import smtplib
