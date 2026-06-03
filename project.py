@@ -13,7 +13,7 @@ from mysql.connector import Error
 # ====================================================================
 # 1. PAGE & SESSION STATE INITIALIZATION
 # ====================================================================
-st.set_page_config(page_title="Supply Chain AI Enterprise", layout="wide", page_icon="🚛")
+st.set_page_config(page_title="Traqify", layout="wide", page_icon="🚛")
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -315,7 +315,7 @@ def send_email(to_addr: str, subject: str, html_body: str) -> bool:
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
-                "from": "Supply Chain AI <onboarding@resend.dev>",
+                "from": "Traqify <onboarding@resend.dev>",
                 "to":   [to_addr],
                 "subject": subject,
                 "html": html_body,
@@ -337,15 +337,15 @@ def email_template(title: str, body_html: str) -> str:
     <div style="max-width:600px;margin:30px auto;background:linear-gradient(135deg,#1e1b4b,#1a1a2e);
         border:1px solid rgba(99,102,241,0.3);border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 32px;">
-            <h1 style="margin:0;color:#fff;font-size:1.4rem;">🚛 Supply Chain AI</h1>
-            <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:0.85rem;">Enterprise Intelligence Platform</p>
+            <h1 style="margin:0;color:#fff;font-size:1.4rem;">🚛 Traqify</h1>
+            <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:0.85rem;">Track · Analyze · Notify</p>
         </div>
         <div style="padding:28px 32px;">
             <h2 style="color:#a5b4fc;margin:0 0 16px;">{title}</h2>
             {body_html}
         </div>
         <div style="padding:16px 32px;border-top:1px solid rgba(99,102,241,0.2);text-align:center;">
-            <p style="color:#475569;font-size:0.75rem;margin:0;">Supply Chain AI Enterprise · Automated Alert System</p>
+            <p style="color:#475569;font-size:0.75rem;margin:0;">Traqify · Automated Alert System</p>
         </div>
     </div></body></html>"""
 
@@ -419,8 +419,8 @@ def auth_page():
     st.markdown("""
     <div style="text-align:center; animation:fadeInDown 0.8s ease both; padding:2rem 0 1rem 0;">
         <div style="font-size:3.5rem;">🚛</div>
-        <h1 style="font-size:2.4rem; margin:0.3rem 0;">Supply Chain AI</h1>
-        <p style="color:#94a3b8; font-size:1rem; margin:0;">Enterprise Intelligence Platform</p>
+        <h1 style="font-size:2.4rem; margin:0.3rem 0;">Traqify</h1>
+        <p style="color:#94a3b8; font-size:1rem; margin:0;">Track · Analyze · Notify</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
@@ -494,8 +494,8 @@ def main_dashboard():
     st.sidebar.markdown("""
     <div style="text-align:center;padding:1rem 0 0.5rem 0;">
         <div style="font-size:2.5rem;">🚛</div>
-        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1rem;">Supply Chain AI</h3>
-        <p style="color:#475569;font-size:0.75rem;margin:0;">Enterprise Dashboard</p>
+        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1rem;">Traqify</h3>
+        <p style="color:#475569;font-size:0.75rem;margin:0;">Traqify Dashboard</p>
     </div>
     <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
     """, unsafe_allow_html=True)
@@ -510,8 +510,8 @@ def main_dashboard():
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
-        <h2>🚛 Supply Chain Intelligence Dashboard</h2>
-        <p>Real-time analytics · Inventory management · Shipment tracking · Demand forecasting</p>
+        <h2>🚛 Traqify — Supply Chain Dashboard</h2>
+        <p>Real-time analytics · Inventory · Shipments · Forecasting · Alerts</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -975,7 +975,7 @@ def main_dashboard():
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
-        Supply Chain AI Enterprise · Built with Streamlit & MySQL
+        Traqify · Built with Streamlit & MySQL
     </div>""", unsafe_allow_html=True)
 
 
