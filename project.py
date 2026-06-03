@@ -18,6 +18,10 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
 # ====================================================================
 # 2. GLOBAL CSS ANIMATIONS & STYLING
@@ -217,7 +221,12 @@ def init_db():
         cursor.execute("""CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL);""")
+            password VARCHAR(255) NOT NULL,
+            email VARCHAR(255) DEFAULT NULL);""")
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL;")
+        except Exception:
+            pass  # column already exists
         conn.commit(); cursor.close(); conn.close()
     except Error as e:
         st.error(f"DB Init Error: {e}")
@@ -427,12 +436,14 @@ def auth_page():
                     with st.spinner("Authenticating..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
                         cursor = conn.cursor()
-                        cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
+                        cursor.execute("SELECT password, email FROM users WHERE username=%s", (username,))
                         row = cursor.fetchone(); cursor.close(); conn.close()
                     if row and row[0] == password:
                         st.success("✅ Login successful! Loading dashboard...")
                         time.sleep(0.6)
                         st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.session_state.user_email = row[1] or ""
                         st.rerun()
                     else:
                         st.error("❌ Invalid username or password")
@@ -446,6 +457,7 @@ def auth_page():
             with st.form("signup"):
                 username = st.text_input("👤 Username")
                 password = st.text_input("🔑 Password", type="password")
+                email_signup = st.text_input("📧 Email Address (for notifications)")
                 if st.form_submit_button("Create Account →", use_container_width=True):
                     with st.spinner("Creating account..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
@@ -455,7 +467,7 @@ def auth_page():
                         if exists:
                             st.error("⚠️ Username already exists")
                         else:
-                            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+                            cursor.execute("INSERT INTO users (username, password, email) VALUES (%s, %s, %s)", (username, password, email_signup or None))
                             conn.commit()
                             st.success("🎉 Account created! You can now log in.")
                         cursor.close(); conn.close()
@@ -851,7 +863,26 @@ def main_dashboard():
             Enter your email to receive automated alerts for low stock, shipment delays, and summary reports.
         </p>""", unsafe_allow_html=True)
 
-        email_input = st.text_input("📬 Your Email Address", placeholder="you@example.com")
+        # Pre-fill from saved email, allow update
+        saved_email = st.session_state.get("user_email", "")
+        email_input = st.text_input("📬 Your Email Address", value=saved_email, placeholder="you@example.com")
+
+        save_col, _ = st.columns([1, 3])
+        with save_col:
+            if st.button("💾 Save Email", key="save_email_btn"):
+                if email_input:
+                    try:
+                        conn   = mysql.connector.connect(**DB_CONFIG)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE users SET email=%s WHERE username=%s",
+                                       (email_input, st.session_state.username))
+                        conn.commit(); cursor.close(); conn.close()
+                        st.session_state.user_email = email_input
+                        st.success("✅ Email saved!")
+                    except Exception as e:
+                        st.error(f"Could not save: {e}")
+                else:
+                    st.warning("Enter an email first.")
 
         if email_input:
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
