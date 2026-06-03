@@ -1021,6 +1021,41 @@ def main_dashboard():
                         if ok:
                             st.success(f"✅ Sent to {email_input}")
 
+            # ── Send report to a specific user ──────────────────────
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+            st.markdown("#### 📤 Send Report to a Specific User")
+            st.markdown("<p style=\'color:#64748b;font-size:0.85rem;\'>Look up a registered user and send them a report directly.</p>", unsafe_allow_html=True)
+
+            try:
+                conn_u = mysql.connector.connect(**DB_CONFIG)
+                users_df = pd.read_sql("SELECT username, email FROM users WHERE email IS NOT NULL AND email != ''", conn_u)
+                conn_u.close()
+            except Exception:
+                users_df = pd.DataFrame(columns=["username","email"])
+
+            if users_df.empty:
+                st.info("No users with saved emails found.")
+            else:
+                user_options = {f"{row.username} ({row.email})": row.email for _, row in users_df.iterrows()}
+                selected_user = st.selectbox("👤 Select User", list(user_options.keys()), key="admin_user_select")
+                target_email  = user_options[selected_user]
+                report_type   = st.selectbox("📊 Report Type", ["Low Stock Alert", "Shipment Delay Alert", "Summary Report"], key="admin_report_type")
+
+                if st.button("📤 Send to User", use_container_width=False, key="admin_send_btn"):
+                    with st.spinner(f"Sending {report_type} to {target_email}..."):
+                        if report_type == "Low Stock Alert":
+                            ls_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                            ok = send_low_stock_alert(target_email, ls_df) if not ls_df.empty else False
+                            if ls_df.empty: st.info("No low stock items to report.")
+                        elif report_type == "Shipment Delay Alert":
+                            dl_df = shipments_df[shipments_df["delay_days"] > 0]
+                            ok = send_delay_alert(target_email, dl_df) if not dl_df.empty else False
+                            if dl_df.empty: st.info("No delayed shipments to report.")
+                        else:
+                            ok = send_summary_email(target_email, total_rev, delayed_count, low_stock, product_count)
+                    if ok:
+                        st.success(f"✅ {report_type} sent to {target_email}")
+
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
             st.markdown("""
             <div style="background:rgba(15,14,23,0.6);border:1px solid rgba(99,102,241,0.15);
