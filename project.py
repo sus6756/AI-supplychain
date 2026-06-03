@@ -309,17 +309,23 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
 # ====================================================================
 def send_email(to_addr: str, subject: str, html_body: str) -> bool:
     try:
-        sender  = st.secrets["EMAIL_SENDER"]
-        app_pwd = st.secrets["EMAIL_APP_PASSWORD"]
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"Supply Chain AI <{sender}>"
-        msg["To"]      = to_addr
-        msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender, app_pwd)
-            server.sendmail(sender, to_addr, msg.as_string())
-        return True
+        api_key = st.secrets["RESEND_API_KEY"]
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": "Supply Chain AI <onboarding@resend.dev>",
+                "to":   [to_addr],
+                "subject": subject,
+                "html": html_body,
+            },
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            return True
+        else:
+            st.error(f"Email error: {resp.status_code} — {resp.text}")
+            return False
     except Exception as e:
         st.error(f"Email error: {e}")
         return False
@@ -952,10 +958,8 @@ def main_dashboard():
                 border-radius:10px;padding:1rem 1.2rem;">
                 <p style="color:#475569;font-size:0.8rem;margin:0;">
                     ⚙️ <strong style="color:#64748b;">Setup required:</strong>
-                    Add <code style="color:#a5b4fc;">EMAIL_SENDER</code> and
-                    <code style="color:#a5b4fc;">EMAIL_APP_PASSWORD</code> to your
-                    Streamlit secrets to enable sending. Use a Gmail account with an App Password
-                    (Google Account → Security → 2FA → App Passwords).
+                    Add <code style="color:#a5b4fc;">RESEND_API_KEY</code> to your Streamlit secrets.
+                    Get a free key at <a href="https://resend.com" style="color:#6366f1;">resend.com</a> (free tier: 100 emails/day).
                 </p>
             </div>""", unsafe_allow_html=True)
         else:
