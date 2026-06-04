@@ -949,17 +949,48 @@ def main_dashboard():
         if email_input:
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-            # Admin-only send section
-            if not st.session_state.notif_unlocked:
+            # Send section — self-reports for users, full panel for admin
+            is_admin = st.session_state.get("username","") == "lunalupa"
+
+            if not is_admin:
+                # Regular users send reports to themselves
+                st.markdown("#### 📩 Send Yourself a Report")
+                st.markdown("<p style=\'color:#64748b;font-size:0.85rem;margin-bottom:1rem;\'>Based on your uploaded data — sent straight to your email.</p>", unsafe_allow_html=True)
+                u_col1, u_col2, u_col3 = st.columns(3)
+                with u_col1:
+                    if st.button("📤 My Low Stock Report", use_container_width=True, key="u_btn_stock"):
+                        ls_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                        if ls_df.empty:
+                            st.info("No low stock items in your data.")
+                        else:
+                            with st.spinner("Sending..."):
+                                ok = send_low_stock_alert(email_input, ls_df)
+                            if ok: st.success(f"✅ Sent to {email_input}")
+                with u_col2:
+                    if st.button("📤 My Delay Report", use_container_width=True, key="u_btn_delay"):
+                        dl_df = shipments_df[shipments_df["delay_days"] > 0]
+                        if dl_df.empty:
+                            st.info("No delays in your data.")
+                        else:
+                            with st.spinner("Sending..."):
+                                ok = send_delay_alert(email_input, dl_df)
+                            if ok: st.success(f"✅ Sent to {email_input}")
+                with u_col3:
+                    if st.button("📤 My Summary Report", use_container_width=True, key="u_btn_summary"):
+                        with st.spinner("Sending..."):
+                            ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
+                        if ok: st.success(f"✅ Sent to {email_input}")
+
+            if is_admin and not st.session_state.notif_unlocked:
                 st.markdown("""
                 <div style="background:rgba(99,102,241,0.08);border:1px dashed rgba(99,102,241,0.3);
                     border-radius:12px;padding:1.2rem;text-align:center;">
                     <div style="font-size:1.5rem;">🔒</div>
                     <p style="color:#64748b;margin:0.4rem 0 0;font-size:0.85rem;">
-                        Enter the admin password above to send alerts and reports.
+                        Enter the admin password above to access the admin panel.
                     </p>
                 </div>""", unsafe_allow_html=True)
-            else:
+            elif is_admin:
                 st.markdown("#### Choose what to send:")
                 col_n1, col_n2, col_n3 = st.columns(3)
 
