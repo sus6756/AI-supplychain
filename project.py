@@ -924,7 +924,7 @@ def main_dashboard():
         st.markdown("### 📧 Email Notifications")
         st.markdown("""
         <p style="color:#94a3b8;margin-bottom:1.5rem;">
-            Save your email below to receive alerts. Admin access required to send reports.
+            Save your email to receive alerts and request reports.
         </p>""", unsafe_allow_html=True)
 
         # Pre-fill from saved email, allow update
