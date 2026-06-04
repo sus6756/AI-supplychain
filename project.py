@@ -866,7 +866,9 @@ def main_dashboard():
         if "notif_unlocked" not in st.session_state:
             st.session_state.notif_unlocked = False
 
-        if not st.session_state.notif_unlocked:
+        # Top gate — only shown to admin (lunalupa)
+        _is_admin_check = st.session_state.get("username","") == "lunalupa"
+        if _is_admin_check and not st.session_state.notif_unlocked:
             st.markdown("""
             <div style="background:linear-gradient(135deg,rgba(30,27,75,0.9),rgba(17,24,39,0.95));
                 border:1px solid rgba(99,102,241,0.35);border-radius:20px;
