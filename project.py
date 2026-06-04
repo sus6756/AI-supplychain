@@ -1338,7 +1338,7 @@ def main_dashboard():
                             username VARCHAR(255) UNIQUE,
                             email VARCHAR(255),
                             day_of_week VARCHAR(20),
-                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );""")
                         cursor.execute("""INSERT INTO email_schedules (username, email, day_of_week)
                             VALUES (%s, %s, %s)
