@@ -277,6 +277,13 @@ def init_activity_log():
             action VARCHAR(500),
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS email_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) UNIQUE,
+            email VARCHAR(255),
+            day_of_week VARCHAR(20),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );""")
         conn.commit(); cursor.close(); conn.close()
     except Exception: pass
 
