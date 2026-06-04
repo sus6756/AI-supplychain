@@ -953,9 +953,40 @@ def main_dashboard():
             is_admin = st.session_state.get("username","") == "lunalupa"
 
             if not is_admin:
-                # Regular users send reports to themselves
+                # Request reports from admin
                 st.markdown("#### 📩 Send Yourself a Report")
-                st.markdown("<p style=\'color:#64748b;font-size:0.85rem;margin-bottom:1rem;\'>Based on your uploaded data — sent straight to your email.</p>", unsafe_allow_html=True)
+                st.markdown("<p style=\'color:#64748b;font-size:0.85rem;margin-bottom:1rem;\'>Send yourself a report or request all reports from the admin.</p>", unsafe_allow_html=True)
+
+                # Request All Reports button
+                if st.button("📬 Request All Reports from Admin", use_container_width=False, key="req_all_reports"):
+                    req_user = st.session_state.get("username", "Unknown")
+                    req_email = email_input
+                    body = f"""
+                    <p style="color:#94a3b8;">A user has requested all reports on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
+                    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
+                        <tr style="background:rgba(99,102,241,0.2);">
+                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Field</th>
+                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Value</th>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 14px;color:#94a3b8;">Username</td>
+                            <td style="padding:8px 14px;color:#e2e8f0;">{req_user}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 14px;color:#94a3b8;">Email</td>
+                            <td style="padding:8px 14px;color:#e2e8f0;">{req_email}</td>
+                        </tr>
+                    </table>
+                    <p style="color:#64748b;font-size:0.82rem;margin-top:16px;">
+                        Go to the Traqify admin panel → Notifications → Send Report to Specific User → select this user and send all reports.
+                    </p>"""
+                    html = email_template("📊 Report Request", body)
+                    ok = send_email("traqify.alerts@gmail.com", f"📊 Report Request from {req_user}", html)
+                    if ok:
+                        st.success("✅ Request sent! The admin will send your reports shortly.")
+
+                st.markdown("---")
+                st.markdown("<p style=\'color:#475569;font-size:0.8rem;\'>Or send yourself a quick report right now:</p>", unsafe_allow_html=True)
                 u_col1, u_col2, u_col3 = st.columns(3)
                 with u_col1:
                     if st.button("📤 My Low Stock Report", use_container_width=True, key="u_btn_stock"):
