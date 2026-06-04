@@ -946,7 +946,10 @@ def main_dashboard():
                 else:
                     st.warning("Enter an email first.")
 
-        if email_input:
+        # Use saved email from session if input field is empty after save
+        active_email = email_input or st.session_state.get("user_email", "")
+
+        if active_email:
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
             # Send section — self-reports for users, full panel for admin
@@ -960,7 +963,7 @@ def main_dashboard():
                 # Request All Reports button
                 if st.button("📬 Request All Reports from Admin", use_container_width=False, key="req_all_reports"):
                     req_user = st.session_state.get("username", "Unknown")
-                    req_email = email_input
+                    req_email = active_email
                     body = f"""
                     <p style="color:#94a3b8;">A user has requested all reports on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
                     <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
@@ -995,8 +998,8 @@ def main_dashboard():
                             st.info("No low stock items in your data.")
                         else:
                             with st.spinner("Sending..."):
-                                ok = send_low_stock_alert(email_input, ls_df)
-                            if ok: st.success(f"✅ Sent to {email_input}")
+                                ok = send_low_stock_alert(active_email, ls_df)
+                            if ok: st.success(f"✅ Sent to {active_email}")
                 with u_col2:
                     if st.button("📤 My Delay Report", use_container_width=True, key="u_btn_delay"):
                         dl_df = shipments_df[shipments_df["delay_days"] > 0]
@@ -1004,13 +1007,13 @@ def main_dashboard():
                             st.info("No delays in your data.")
                         else:
                             with st.spinner("Sending..."):
-                                ok = send_delay_alert(email_input, dl_df)
-                            if ok: st.success(f"✅ Sent to {email_input}")
+                                ok = send_delay_alert(active_email, dl_df)
+                            if ok: st.success(f"✅ Sent to {active_email}")
                 with u_col3:
                     if st.button("📤 My Summary Report", use_container_width=True, key="u_btn_summary"):
                         with st.spinner("Sending..."):
-                            ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
-                        if ok: st.success(f"✅ Sent to {email_input}")
+                            ok = send_summary_email(active_email, total_rev, delayed_count, low_stock, product_count)
+                        if ok: st.success(f"✅ Sent to {active_email}")
 
             if is_admin and not st.session_state.notif_unlocked:
                 st.markdown("""
