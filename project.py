@@ -281,8 +281,7 @@ def init_activity_log():
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE,
             email VARCHAR(255),
-            day_of_week VARCHAR(20),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            day_of_week VARCHAR(20)
         );""")
         conn.commit(); cursor.close(); conn.close()
     except Exception: pass
@@ -1357,7 +1356,7 @@ def main_dashboard():
                 st.markdown("#### 🗓️ All Scheduled Reports")
                 try:
                     conn = mysql.connector.connect(**DB_CONFIG)
-                    sched_df = pd.read_sql("SELECT username, email, day_of_week, created_at FROM email_schedules ORDER BY created_at DESC", conn)
+                    sched_df = pd.read_sql("SELECT username, email, day_of_week FROM email_schedules", conn)
                     conn.close()
                     if not sched_df.empty:
                         st.dataframe(sched_df, use_container_width=True, hide_index=True)
