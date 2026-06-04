@@ -2,6 +2,8 @@
 import io
 import time
 import smtplib
+import datetime
+import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -261,6 +263,104 @@ def init_supply_chain_tables():
 
 init_db()
 init_supply_chain_tables()
+init_activity_log()
+
+# ====================================================================
+# 3b. ACTIVITY LOG
+# ====================================================================
+def init_activity_log():
+    try:
+        conn   = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("""CREATE TABLE IF NOT EXISTS activity_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255),
+            action VARCHAR(500),
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        );""")
+        conn.commit(); cursor.close(); conn.close()
+    except Exception: pass
+
+def log_activity(username: str, action: str):
+    try:
+        conn   = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO activity_log (username, action) VALUES (%s, %s)", (username, action))
+        conn.commit(); cursor.close(); conn.close()
+    except Exception: pass
+
+def get_activity_log(limit: int = 100) -> "pd.DataFrame":
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        df   = pd.read_sql(f"SELECT username, action, timestamp FROM activity_log ORDER BY timestamp DESC LIMIT {limit}", conn)
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["username","action","timestamp"])
+
+# ====================================================================
+# 3c. PDF EXPORT HELPER
+# ====================================================================
+def generate_pdf_report(total_rev: float, delayed: int, low_stock: int,
+                         products: int, username: str) -> bytes:
+    try:
+        from fpdf import FPDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 20)
+        pdf.set_text_color(99, 102, 241)
+        pdf.cell(0, 12, "Traqify - Supply Chain Report", ln=True, align="C")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 6, f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}  |  User: {username}", ln=True, align="C")
+        pdf.ln(6)
+
+        pdf.set_draw_color(99, 102, 241)
+        pdf.set_line_width(0.5)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(6)
+
+        # KPI cards
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.set_text_color(30, 30, 30)
+        kpis = [
+            ("Total Revenue", f"${total_rev:,.0f}"),
+            ("Delayed Shipments", str(delayed)),
+            ("Low Stock Items", str(low_stock)),
+            ("Total Products", str(products)),
+        ]
+        for label, value in kpis:
+            pdf.set_fill_color(240, 242, 255)
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(80, 80, 80)
+            pdf.cell(90, 8, label, border=1, fill=True)
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(30, 30, 30)
+            pdf.cell(100, 8, value, border=1, fill=False, ln=True)
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 6, "Traqify · Track · Analyze · Notify", ln=True, align="C")
+        return bytes(pdf.output())
+    except ImportError:
+        return b""
+
+# ====================================================================
+# 3d. GOOGLE SHEETS HELPER
+# ====================================================================
+def load_from_gsheet(url: str) -> "tuple[pd.DataFrame|None, str]":
+    try:
+        import re
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
+        if not match:
+            return None, "Invalid Google Sheets URL"
+        sheet_id = match.group(1)
+        csv_url  = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        df = pd.read_csv(csv_url)
+        return df, "ok"
+    except Exception as e:
+        return None, str(e)
+
 
 # ====================================================================
 # 4. HELPERS
@@ -499,6 +599,7 @@ def main_dashboard():
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Logout", use_container_width=True):
+        log_activity(st.session_state.get("username","?"), "Logout")
         st.session_state.logged_in = False
         st.rerun()
 
@@ -526,6 +627,7 @@ def main_dashboard():
                 sales_df     = pd.read_excel(file, sheet_name="sales")
                 data_loaded  = True
             st.toast("✅ Excel loaded!", icon="📊")
+            log_activity(st.session_state.get("username","?"), "Uploaded Excel data")
     else:
         p  = st.sidebar.file_uploader("📦 products.csv",  type=["csv"])
         s  = st.sidebar.file_uploader("💰 sales.csv",     type=["csv"])
@@ -537,6 +639,7 @@ def main_dashboard():
                 shipments_df = pd.read_csv(sh)
                 data_loaded  = True
             st.toast("✅ CSVs loaded!", icon="📁")
+            log_activity(st.session_state.get("username","?"), "Uploaded CSV data")
 
     if not data_loaded:
         st.markdown("""
@@ -602,14 +705,16 @@ def main_dashboard():
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📊 Revenue & Forecast",
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        "�� Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
         "🏆 Supplier Scorecard",
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Notifications",
+        "📑 PDF & Sheets",
+        "📋 Activity Log",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -1135,6 +1240,157 @@ def main_dashboard():
                 border-radius:12px;padding:2rem;text-align:center;">
                 <div style="font-size:2.5rem;margin-bottom:0.5rem;">📬</div>
                 <p style="color:#64748b;margin:0;">Enter your email address above to get started.</p>
+            </div>""", unsafe_allow_html=True)
+
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 8 — PDF EXPORT & GOOGLE SHEETS
+    # ─────────────────────────────────────────────────────────────────
+    with tab8:
+        st.markdown("### 📑 PDF Export & Google Sheets")
+
+        col_pdf, col_sheets = st.columns(2)
+
+        with col_pdf:
+            st.markdown("""
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
+                border-radius:14px;padding:1.5rem;margin-bottom:1rem;">
+                <div style="font-size:2rem;text-align:center;">📄</div>
+                <h4 style="color:#a5b4fc;text-align:center;margin:0.5rem 0;">Download PDF Report</h4>
+                <p style="color:#64748b;font-size:0.82rem;text-align:center;margin:0;">
+                    Full KPI summary as a styled PDF
+                </p>
+            </div>""", unsafe_allow_html=True)
+            pdf_bytes = generate_pdf_report(
+                total_rev, delayed_count, low_stock, product_count,
+                st.session_state.get("username","user")
+            )
+            if pdf_bytes:
+                st.download_button(
+                    "📥 Download PDF Report",
+                    data=pdf_bytes,
+                    file_name=f"traqify_report_{datetime.date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            else:
+                st.warning("Install `fpdf2` to enable PDF export. Add `fpdf2>=2.7.0` to requirements.txt")
+
+        with col_sheets:
+            st.markdown("""
+            <div style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);
+                border-radius:14px;padding:1.5rem;margin-bottom:1rem;">
+                <div style="font-size:2rem;text-align:center;">📊</div>
+                <h4 style="color:#67e8f9;text-align:center;margin:0.5rem 0;">Google Sheets Sync</h4>
+                <p style="color:#64748b;font-size:0.82rem;text-align:center;margin:0;">
+                    Load data directly from a public Google Sheet
+                </p>
+            </div>""", unsafe_allow_html=True)
+            sheet_url = st.text_input("📎 Google Sheet URL (must be public/shared)", placeholder="https://docs.google.com/spreadsheets/d/...", key="gsheet_url")
+            sheet_type = st.selectbox("Load as", ["Sales", "Products", "Shipments"], key="gsheet_type")
+            if st.button("🔄 Load from Google Sheets", use_container_width=True, key="load_gsheet"):
+                with st.spinner("Fetching from Google Sheets..."):
+                    df_gs, msg = load_from_gsheet(sheet_url)
+                if msg == "ok" and df_gs is not None:
+                    st.success(f"✅ Loaded {len(df_gs)} rows from Google Sheets")
+                    st.dataframe(df_gs, use_container_width=True, height=280)
+                    if sheet_type == "Sales":
+                        st.session_state["gs_sales"] = df_gs
+                    elif sheet_type == "Products":
+                        st.session_state["gs_products"] = df_gs
+                    else:
+                        st.session_state["gs_shipments"] = df_gs
+                    log_activity(st.session_state.get("username","?"), f"Loaded {sheet_type} from Google Sheets")
+                else:
+                    st.error(f"❌ Failed: {msg}")
+            st.markdown("""
+            <p style="color:#475569;font-size:0.78rem;margin-top:0.5rem;">
+                ℹ️ Make sure the sheet is shared as <strong style="color:#67e8f9;">Anyone with the link → Viewer</strong>
+            </p>""", unsafe_allow_html=True)
+
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        st.markdown("### 📅 Schedule Weekly Email Report")
+        st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Set a day to automatically receive a summary report every week.</p>", unsafe_allow_html=True)
+
+        sched_col1, sched_col2 = st.columns(2)
+        with sched_col1:
+            sched_day = st.selectbox("📆 Send every", ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], key="sched_day")
+        with sched_col2:
+            sched_email = st.text_input("📬 Send to", value=st.session_state.get("user_email",""), key="sched_email")
+
+        if st.button("💾 Save Schedule", key="save_schedule"):
+            if sched_email:
+                try:
+                    conn = mysql.connector.connect(**DB_CONFIG)
+                    cursor = conn.cursor()
+                    cursor.execute("""CREATE TABLE IF NOT EXISTS email_schedules (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        username VARCHAR(255) UNIQUE,
+                        email VARCHAR(255),
+                        day_of_week VARCHAR(20),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );""")
+                    cursor.execute("""INSERT INTO email_schedules (username, email, day_of_week)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE email=%s, day_of_week=%s""",
+                        (st.session_state.get("username","?"), sched_email, sched_day, sched_email, sched_day))
+                    conn.commit(); cursor.close(); conn.close()
+                    log_activity(st.session_state.get("username","?"), f"Set weekly report schedule: {sched_day} to {sched_email}")
+                    st.success(f"✅ Weekly report scheduled for every {sched_day} → {sched_email}")
+                except Exception as e:
+                    st.error(f"Could not save schedule: {e}")
+            else:
+                st.warning("Enter an email address first.")
+
+        # Show existing schedules (admin only)
+        if st.session_state.get("username","") == "lunalupa":
+            st.markdown("#### 🗓️ All Scheduled Reports")
+            try:
+                conn = mysql.connector.connect(**DB_CONFIG)
+                sched_df = pd.read_sql("SELECT username, email, day_of_week, created_at FROM email_schedules ORDER BY created_at DESC", conn)
+                conn.close()
+                if not sched_df.empty:
+                    st.dataframe(sched_df, use_container_width=True, hide_index=True)
+                    if st.button("📤 Send Now to All Scheduled Users", key="send_scheduled_now"):
+                        sent = 0
+                        for _, row in sched_df.iterrows():
+                            ok = send_summary_email(row["email"], total_rev, delayed_count, low_stock, product_count)
+                            if ok: sent += 1
+                        st.success(f"✅ Sent to {sent} users")
+                else:
+                    st.info("No scheduled reports yet.")
+            except Exception as e:
+                st.info(f"Schedule table not ready: {e}")
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 9 — ACTIVITY LOG (ADMIN ONLY)
+    # ─────────────────────────────────────────────────────────────────
+    with tab9:
+        st.markdown("### 📋 Activity Log")
+        if st.session_state.get("username","") == "lunalupa":
+            log_df = get_activity_log(200)
+            if log_df.empty:
+                st.info("No activity recorded yet.")
+            else:
+                # Search
+                log_search = st.text_input("🔍 Search activity", placeholder="username or action", key="log_search")
+                if log_search:
+                    mask = log_df.apply(lambda r: r.astype(str).str.contains(log_search, case=False).any(), axis=1)
+                    log_df = log_df[mask]
+
+                st.dataframe(log_df, use_container_width=True, height=500, hide_index=True)
+                st.download_button(
+                    "📥 Export Log (CSV)",
+                    data=log_df.to_csv(index=False).encode(),
+                    file_name=f"activity_log_{datetime.date.today()}.csv",
+                    mime="text/csv",
+                )
+        else:
+            st.markdown("""
+            <div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);
+                border-radius:12px;padding:2rem;text-align:center;">
+                <div style="font-size:2.5rem;">🔒</div>
+                <p style="color:#64748b;margin:0.5rem 0 0;">Activity log is only visible to admins.</p>
             </div>""", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────
