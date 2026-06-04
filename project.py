@@ -712,7 +712,7 @@ def main_dashboard():
         "🏆 Supplier Scorecard",
         "🌍 Supplier Map",
         "🗿 SQL Console",
-        "📧 Notifications",
+        "📧 Hub",
         "📑 PDF & Sheets",
         "📋 Activity Log",
     ])
