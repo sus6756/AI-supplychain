@@ -282,7 +282,7 @@ def init_activity_log():
             username VARCHAR(255) UNIQUE,
             email VARCHAR(255),
             day_of_week VARCHAR(20),
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );""")
         conn.commit(); cursor.close(); conn.close()
     except Exception: pass
