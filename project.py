@@ -263,7 +263,6 @@ def init_supply_chain_tables():
 
 init_db()
 init_supply_chain_tables()
-init_activity_log()
 
 # ====================================================================
 # 3b. ACTIVITY LOG
@@ -361,6 +360,7 @@ def load_from_gsheet(url: str) -> "tuple[pd.DataFrame|None, str]":
     except Exception as e:
         return None, str(e)
 
+init_activity_log()
 
 # ====================================================================
 # 4. HELPERS
