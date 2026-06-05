@@ -1,14 +1,15 @@
-# Traqify v2.0
 import io
 import time
-import smtplib
 import datetime
+import smtplib
 import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from sklearn.linear_model import LinearRegression
 import mysql.connector
 from mysql.connector import Error
@@ -16,16 +17,12 @@ from mysql.connector import Error
 # ====================================================================
 # 1. PAGE & SESSION STATE INITIALIZATION
 # ====================================================================
-st.set_page_config(page_title="Traqify", layout="wide", page_icon="📦")
+st.set_page_config(page_title="Supply Chain AI Enterprise", layout="wide", page_icon="🚛")
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "user_email" not in st.session_state:
-    st.session_state.user_email = ""
 
 # ====================================================================
 # 2. GLOBAL CSS ANIMATIONS & STYLING
@@ -225,12 +222,7 @@ def init_db():
         cursor.execute("""CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            email VARCHAR(255) DEFAULT NULL);""")
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL;")
-        except Exception:
-            pass  # column already exists
+            password VARCHAR(255) NOT NULL);""")
         conn.commit(); cursor.close(); conn.close()
     except Error as e:
         st.error(f"DB Init Error: {e}")
@@ -261,111 +253,197 @@ def init_supply_chain_tables():
     except Error as e:
         st.error(f"Table Init Error: {e}")
 
-init_db()
-init_supply_chain_tables()
+# ====================================================================
+# 3b. ACTIVITY LOG & PDF & GSHEET HELPERS
+# ====================================================================
 
-# ====================================================================
-# 3b. ACTIVITY LOG
-# ====================================================================
 def init_activity_log():
+    """Create activity_log and email_schedules tables if they don't exist."""
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS activity_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255),
-            action VARCHAR(500),
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );""")
+            action TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);""")
         cursor.execute("""CREATE TABLE IF NOT EXISTS email_schedules (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE,
             email VARCHAR(255),
-            day_of_week VARCHAR(20)
-        );""")
+            day_of_week VARCHAR(20));""")
         conn.commit(); cursor.close(); conn.close()
-    except Exception: pass
+    except Error:
+        pass  # silently skip if DB unavailable at startup
+
 
 def log_activity(username: str, action: str):
+    """Insert a row into the activity_log table."""
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         cursor.execute("INSERT INTO activity_log (username, action) VALUES (%s, %s)", (username, action))
         conn.commit(); cursor.close(); conn.close()
-    except Exception: pass
+    except Exception:
+        pass  # non-critical — never break the UI
 
-def get_activity_log(limit: int = 100) -> "pd.DataFrame":
+
+def get_activity_log(limit: int = 200) -> pd.DataFrame:
+    """Return the latest `limit` rows from activity_log as a DataFrame."""
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
-        df   = pd.read_sql(f"SELECT username, action, timestamp FROM activity_log ORDER BY timestamp DESC LIMIT {limit}", conn)
+        df = pd.read_sql(
+            "SELECT username, action, timestamp FROM activity_log ORDER BY timestamp DESC LIMIT %s",
+            conn,
+            params=(limit,),
+        )
         conn.close()
         return df
     except Exception:
-        return pd.DataFrame(columns=["username","action","timestamp"])
+        return pd.DataFrame(columns=["username", "action", "timestamp"])
 
-# ====================================================================
-# 3c. PDF EXPORT HELPER
-# ====================================================================
-def generate_pdf_report(total_rev: float, delayed: int, low_stock: int,
-                         products: int, username: str) -> bytes:
+
+def generate_pdf_report(total_rev, delayed, low_stock, products, username: str):
+    """Generate a PDF summary report using fpdf2. Returns bytes or None."""
     try:
-        from fpdf import FPDF
+        from fpdf import FPDF  # fpdf2
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 20)
-        pdf.set_text_color(99, 102, 241)
-        pdf.cell(0, 12, "Traqify - Supply Chain Report", ln=True, align="C")
-        pdf.set_font("Helvetica", "", 10)
-        pdf.set_text_color(100, 116, 139)
-        pdf.cell(0, 6, f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}  |  User: {username}", ln=True, align="C")
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.cell(0, 12, "Supply Chain AI - Dashboard Report", ln=True, align="C")
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 8, f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}   User: {username}", ln=True, align="C")
         pdf.ln(6)
-
-        pdf.set_draw_color(99, 102, 241)
-        pdf.set_line_width(0.5)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(6)
-
-        # KPI cards
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(30, 30, 30)
-        kpis = [
-            ("Total Revenue", f"${total_rev:,.0f}"),
-            ("Delayed Shipments", str(delayed)),
-            ("Low Stock Items", str(low_stock)),
-            ("Total Products", str(products)),
-        ]
-        for label, value in kpis:
-            pdf.set_fill_color(240, 242, 255)
-            pdf.set_font("Helvetica", "", 10)
-            pdf.set_text_color(80, 80, 80)
-            pdf.cell(90, 8, label, border=1, fill=True)
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(30, 30, 30)
-            pdf.cell(100, 8, value, border=1, fill=False, ln=True)
-        pdf.ln(8)
-        pdf.set_font("Helvetica", "I", 8)
-        pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 6, "Traqify · Track · Analyze · Notify", ln=True, align="C")
-        return bytes(pdf.output())
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 10, "KPI Summary", ln=True)
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 8, f"Total Revenue:        ${total_rev:,.2f}", ln=True)
+        pdf.cell(0, 8, f"Delayed Shipments:    {delayed}", ln=True)
+        pdf.cell(0, 8, f"Low Stock Items:      {low_stock}", ln=True)
+        pdf.cell(0, 8, f"Total Products:       {products}", ln=True)
+        pdf.ln(4)
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 8, "Supply Chain AI Enterprise · Built with Streamlit & MySQL", ln=True, align="C")
+        return pdf.output()
     except ImportError:
-        return b""
+        return None
+    except Exception:
+        return None
 
-# ====================================================================
-# 3d. GOOGLE SHEETS HELPER
-# ====================================================================
-def load_from_gsheet(url: str) -> "tuple[pd.DataFrame|None, str]":
+
+def load_from_gsheet(url: str):
+    """Fetch a public Google Sheet as CSV and return (DataFrame, 'ok') or (None, error_msg)."""
     try:
-        import re
-        match = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
-        if not match:
-            return None, "Invalid Google Sheets URL"
-        sheet_id = match.group(1)
-        csv_url  = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        df = pd.read_csv(csv_url)
+        if not url:
+            return None, "No URL provided."
+        # Convert /edit or /pub URL to CSV export URL
+        if "/edit" in url or "/pub" in url:
+            base = url.split("/edit")[0].split("/pub")[0]
+            csv_url = base + "/export?format=csv"
+        elif "spreadsheets/d/" in url:
+            csv_url = url.rstrip("/") + "/export?format=csv"
+        else:
+            csv_url = url
+        resp = requests.get(csv_url, timeout=15)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
         return df, "ok"
     except Exception as e:
         return None, str(e)
 
+
+# ====================================================================
+# 3c. EMAIL HELPERS
+# ====================================================================
+
+def email_template(title: str, body_html: str) -> str:
+    return f"""
+    <html><body style="background:#0f0e17;font-family:Inter,sans-serif;padding:2rem;">
+    <div style="max-width:600px;margin:auto;background:#1e1b4b;border-radius:14px;padding:2rem;">
+      <h2 style="color:#a5b4fc;margin-top:0;">{title}</h2>
+      {body_html}
+      <hr style="border-color:#334155;margin:1.5rem 0;">
+      <p style="color:#475569;font-size:0.78rem;margin:0;">Supply Chain AI Enterprise · Traqify</p>
+    </div></body></html>"""
+
+
+def send_email(to: str, subject: str, html: str) -> bool:
+    try:
+        sender = st.secrets.get("EMAIL_USER", "")
+        app_pw = st.secrets.get("EMAIL_PASS", "")
+        if not sender or not app_pw:
+            return False
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = sender
+        msg["To"]      = to
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, app_pw)
+            server.sendmail(sender, to, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def send_low_stock_alert(to: str, df: pd.DataFrame) -> bool:
+    rows = "".join(
+        f"<tr><td style='padding:6px 12px;color:#e2e8f0;'>{r.get('product_name','?')}</td>"
+        f"<td style='padding:6px 12px;color:#f87171;text-align:right;'>{r.get('stock_quantity','?')}</td>"
+        f"<td style='padding:6px 12px;color:#94a3b8;text-align:right;'>{r.get('reorder_level','?')}</td></tr>"
+        for _, r in df.iterrows()
+    )
+    body = f"""
+    <p style='color:#94a3b8;'>The following items are below reorder level:</p>
+    <table style='width:100%;border-collapse:collapse;'>
+      <thead><tr>
+        <th style='padding:6px 12px;color:#a5b4fc;text-align:left;'>Product</th>
+        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Stock</th>
+        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Reorder Level</th>
+      </tr></thead><tbody>{rows}</tbody>
+    </table>"""
+    return send_email(to, "⚠️ Low Stock Alert — Supply Chain AI", email_template("⚠️ Low Stock Alert", body))
+
+
+def send_delay_alert(to: str, df: pd.DataFrame) -> bool:
+    rows = "".join(
+        f"<tr><td style='padding:6px 12px;color:#e2e8f0;'>{r.get('shipment_id','?')}</td>"
+        f"<td style='padding:6px 12px;color:#fb923c;text-align:right;'>{r.get('delay_days','?')} days</td></tr>"
+        for _, r in df.iterrows()
+    )
+    body = f"""
+    <p style='color:#94a3b8;'>The following shipments are delayed:</p>
+    <table style='width:100%;border-collapse:collapse;'>
+      <thead><tr>
+        <th style='padding:6px 12px;color:#a5b4fc;text-align:left;'>Shipment ID</th>
+        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Delay</th>
+      </tr></thead><tbody>{rows}</tbody>
+    </table>"""
+    return send_email(to, "🚚 Shipment Delay Alert — Supply Chain AI", email_template("🚚 Delay Alert", body))
+
+
+def send_summary_email(to: str, total_rev, delayed, low_stock, products) -> bool:
+    body = f"""
+    <p style='color:#94a3b8;'>Here is your dashboard summary:</p>
+    <table style='width:100%;'>
+      <tr><td style='color:#94a3b8;padding:6px 0;'>💰 Total Revenue</td>
+          <td style='color:#a5b4fc;text-align:right;font-weight:600;'>${total_rev:,.2f}</td></tr>
+      <tr><td style='color:#94a3b8;padding:6px 0;'>⚠️ Delayed Shipments</td>
+          <td style='color:#f87171;text-align:right;font-weight:600;'>{delayed}</td></tr>
+      <tr><td style='color:#94a3b8;padding:6px 0;'>📉 Low Stock Items</td>
+          <td style='color:#fb923c;text-align:right;font-weight:600;'>{low_stock}</td></tr>
+      <tr><td style='color:#94a3b8;padding:6px 0;'>📦 Total Products</td>
+          <td style='color:#34d399;text-align:right;font-weight:600;'>{products}</td></tr>
+    </table>"""
+    return send_email(to, "📊 Dashboard Summary — Supply Chain AI", email_template("📊 Dashboard Summary", body))
+
+
+
+# ====================================================================
+# 3d. INIT CALLS
+# ====================================================================
+init_db()
+init_supply_chain_tables()
 init_activity_log()
 
 # ====================================================================
@@ -375,6 +453,8 @@ CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(15,14,23,0.6)",
     font=dict(family="Inter", color="#e2e8f0"),
+    margin=dict(l=10, r=10, t=40, b=10),
+    showlegend=False,
 )
 
 def to_excel_bytes(dfs: dict) -> bytes:
@@ -413,117 +493,14 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
     return pd.concat([monthly, forecast_df], ignore_index=True)
 
 # ====================================================================
-# 5. EMAIL NOTIFICATIONS
-# ====================================================================
-def send_email(to_addr: str, subject: str, html_body: str) -> bool:
-    try:
-        sender  = st.secrets["EMAIL_SENDER"]
-        app_pwd = st.secrets["EMAIL_APP_PASSWORD"]
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"Traqify <{sender}>"
-        msg["To"]      = to_addr
-        msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender, app_pwd)
-            server.sendmail(sender, to_addr, msg.as_string())
-        return True
-    except Exception as e:
-        st.error(f"Email error: {e}")
-        return False
-
-def email_template(title: str, body_html: str) -> str:
-    return f"""
-    <html><body style="margin:0;padding:0;background:#0f0e17;font-family:Inter,sans-serif;">
-    <div style="max-width:600px;margin:30px auto;background:linear-gradient(135deg,#1e1b4b,#1a1a2e);
-        border:1px solid rgba(99,102,241,0.3);border-radius:16px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 32px;">
-            <h1 style="margin:0;color:#fff;font-size:1.4rem;">📦 Traqify</h1>
-            <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:0.85rem;">Track · Analyze · Notify</p>
-        </div>
-        <div style="padding:28px 32px;">
-            <h2 style="color:#a5b4fc;margin:0 0 16px;">{title}</h2>
-            {body_html}
-        </div>
-        <div style="padding:16px 32px;border-top:1px solid rgba(99,102,241,0.2);text-align:center;">
-            <p style="color:#475569;font-size:0.75rem;margin:0;">Traqify · Automated Alert System</p>
-        </div>
-    </div></body></html>"""
-
-def send_low_stock_alert(to_addr: str, low_df):
-    rows = ""
-    for _, r in low_df.iterrows():
-        name = r.get("product_name", r.get("product_id", "N/A"))
-        rows += f"""<tr>
-            <td style="padding:8px 12px;color:#e2e8f0;">{name}</td>
-            <td style="padding:8px 12px;color:#f87171;text-align:center;">{r["stock_quantity"]}</td>
-            <td style="padding:8px 12px;color:#a5b4fc;text-align:center;">{r["reorder_level"]}</td>
-            <td style="padding:8px 12px;color:#fb923c;text-align:center;">{r["reorder_level"] - r["stock_quantity"]}</td>
-        </tr>"""
-    body = f"""<p style="color:#94a3b8;">These products are below reorder level:</p>
-    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
-        <thead><tr style="background:rgba(99,102,241,0.2);">
-            <th style="padding:10px 12px;color:#a5b4fc;text-align:left;">Product</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Stock</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Reorder Level</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Units Needed</th>
-        </tr></thead><tbody>{rows}</tbody></table>"""
-    return send_email(to_addr, f"⚠️ Low Stock Alert — {len(low_df)} Products", email_template("⚠️ Low Stock Alert", body))
-
-def send_delay_alert(to_addr: str, delayed_df):
-    rows = ""
-    for _, r in delayed_df.iterrows():
-        rows += f"""<tr>
-            <td style="padding:8px 12px;color:#e2e8f0;">{r.get("shipment_id","N/A")}</td>
-            <td style="padding:8px 12px;color:#e2e8f0;">{r.get("product_id","N/A")}</td>
-            <td style="padding:8px 12px;color:#94a3b8;">{str(r.get("expected_delivery",""))[:10]}</td>
-            <td style="padding:8px 12px;color:#f87171;text-align:center;">{int(r.get("delay_days",0))} days</td>
-        </tr>"""
-    body = f"""<p style="color:#94a3b8;">{len(delayed_df)} shipments are currently delayed:</p>
-    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
-        <thead><tr style="background:rgba(99,102,241,0.2);">
-            <th style="padding:10px 12px;color:#a5b4fc;text-align:left;">Shipment ID</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Product ID</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Expected</th>
-            <th style="padding:10px 12px;color:#a5b4fc;">Delay</th>
-        </tr></thead><tbody>{rows}</tbody></table>"""
-    return send_email(to_addr, f"🚨 Shipment Delay Alert — {len(delayed_df)} Delayed", email_template("🚨 Shipment Delay Alert", body))
-
-def send_summary_email(to_addr: str, total_rev: float, delayed: int, low_stock: int, products: int):
-    body = f"""<p style="color:#94a3b8;">Your current supply chain summary:</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
-        <div style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:16px;text-align:center;">
-            <div style="color:#a5b4fc;font-size:0.75rem;text-transform:uppercase;">Total Revenue</div>
-            <div style="color:#fff;font-size:1.6rem;font-weight:700;">${total_rev:,.0f}</div>
-        </div>
-        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px;text-align:center;">
-            <div style="color:#fca5a5;font-size:0.75rem;text-transform:uppercase;">Delayed Shipments</div>
-            <div style="color:#f87171;font-size:1.6rem;font-weight:700;">{delayed}</div>
-        </div>
-        <div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:10px;padding:16px;text-align:center;">
-            <div style="color:#fde68a;font-size:0.75rem;text-transform:uppercase;">Low Stock Items</div>
-            <div style="color:#fbbf24;font-size:1.6rem;font-weight:700;">{low_stock}</div>
-        </div>
-        <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px;text-align:center;">
-            <div style="color:#86efac;font-size:0.75rem;text-transform:uppercase;">Total Products</div>
-            <div style="color:#4ade80;font-size:1.6rem;font-weight:700;">{products}</div>
-        </div>
-    </div>"""
-    return send_email(to_addr, "📊 Your Supply Chain Summary Report", email_template("📊 Dashboard Summary", body))
-
-
-
-# ====================================================================
 # 5. AUTH PAGE
 # ====================================================================
 def auth_page():
     st.markdown("""
     <div style="text-align:center; animation:fadeInDown 0.8s ease both; padding:2rem 0 1rem 0;">
-        <div style="font-size:4rem;filter:drop-shadow(0 0 12px rgba(99,102,241,0.7));">📦</div>
-        <h1 style="font-size:3rem; margin:0.3rem 0; font-weight:900; letter-spacing:2px;">Traqify</h1>
-        <p style="color:#94a3b8; font-size:1rem; margin:0;">Track · Analyze · Notify</p>
+        <div style="font-size:3.5rem;">🚛</div>
+        <h1 style="font-size:2.4rem; margin:0.3rem 0;">Supply Chain AI</h1>
+        <p style="color:#94a3b8; font-size:1rem; margin:0;">Enterprise Intelligence Platform</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
@@ -546,15 +523,14 @@ def auth_page():
                     with st.spinner("Authenticating..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
                         cursor = conn.cursor()
-                        cursor.execute("SELECT password, email FROM users WHERE username=%s", (username,))
+                        cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
                         row = cursor.fetchone(); cursor.close(); conn.close()
                     if row and row[0] == password:
                         st.success("✅ Login successful! Loading dashboard...")
                         time.sleep(0.6)
                         st.session_state.logged_in = True
                         st.session_state.username = username
-                        st.session_state.notif_unlocked = False
-                        st.session_state.user_email = row[1] or ""
+                        log_activity(username, "Login")
                         st.rerun()
                     else:
                         st.error("❌ Invalid username or password")
@@ -568,7 +544,6 @@ def auth_page():
             with st.form("signup"):
                 username = st.text_input("👤 Username")
                 password = st.text_input("🔑 Password", type="password")
-                email_signup = st.text_input("📧 Email Address (for notifications)")
                 if st.form_submit_button("Create Account →", use_container_width=True):
                     with st.spinner("Creating account..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
@@ -578,7 +553,7 @@ def auth_page():
                         if exists:
                             st.error("⚠️ Username already exists")
                         else:
-                            cursor.execute("INSERT INTO users (username, password, email) VALUES (%s, %s, %s)", (username, password, email_signup or None))
+                            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
                             conn.commit()
                             st.success("🎉 Account created! You can now log in.")
                         cursor.close(); conn.close()
@@ -597,15 +572,15 @@ def main_dashboard():
     # ── Sidebar ──────────────────────────────────────────────────────
     st.sidebar.markdown("""
     <div style="text-align:center;padding:1rem 0 0.5rem 0;">
-        <div style="font-size:3rem;filter:drop-shadow(0 0 8px rgba(99,102,241,0.6));">📦</div>
-        <h3 style="color:#a5b4fc;margin:0.4rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
-        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Dashboard</p>
+        <div style="font-size:2.5rem;">🚛</div>
+        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1rem;">Supply Chain AI</h3>
+        <p style="color:#475569;font-size:0.75rem;margin:0;">Enterprise Dashboard</p>
     </div>
     <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Logout", use_container_width=True):
-        log_activity(st.session_state.get("username","?"), "Logout")
+        log_activity(st.session_state.get("username", "?"), "Logout")
         st.session_state.logged_in = False
         st.rerun()
 
@@ -615,8 +590,8 @@ def main_dashboard():
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
-        <h2>🚛 Traqify — Supply Chain Dashboard</h2>
-        <p>Real-time analytics · Inventory · Shipments · Forecasting · Alerts</p>
+        <h2>🚛 Supply Chain Intelligence Dashboard</h2>
+        <p>Real-time analytics · Inventory management · Shipment tracking · Demand forecasting</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -633,7 +608,7 @@ def main_dashboard():
                 sales_df     = pd.read_excel(file, sheet_name="sales")
                 data_loaded  = True
             st.toast("✅ Excel loaded!", icon="📊")
-            log_activity(st.session_state.get("username","?"), "Uploaded Excel data")
+            log_activity(st.session_state.get("username", "?"), "Uploaded Excel file")
     else:
         p  = st.sidebar.file_uploader("📦 products.csv",  type=["csv"])
         s  = st.sidebar.file_uploader("💰 sales.csv",     type=["csv"])
@@ -645,7 +620,7 @@ def main_dashboard():
                 shipments_df = pd.read_csv(sh)
                 data_loaded  = True
             st.toast("✅ CSVs loaded!", icon="📁")
-            log_activity(st.session_state.get("username","?"), "Uploaded CSV data")
+            log_activity(st.session_state.get("username", "?"), "Uploaded CSV files")
 
     if not data_loaded:
         st.markdown("""
@@ -711,16 +686,14 @@ def main_dashboard():
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-        "�� Revenue & Forecast",
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
         "🏆 Supplier Scorecard",
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Hub",
-        "📑 PDF & Sheets",
-        "📋 Activity Log",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -737,7 +710,7 @@ def main_dashboard():
             template="plotly_dark",
             labels={"month":"Month","revenue":"Revenue ($)"},
         )
-        fig_bar.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+        fig_bar.update_layout(**CHART_LAYOUT)
         fig_bar.update_traces(marker_line_width=0)
         st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -752,7 +725,7 @@ def main_dashboard():
                 labels={"month_dt": "Month", "revenue": "Revenue ($)", "type": ""},
             )
             fig_fc.update_traces(line=dict(width=2.5))
-            fig_fc.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
+            fig_fc.update_layout(**CHART_LAYOUT, showlegend=True)
             st.plotly_chart(fig_fc, use_container_width=True)
             forecast_only = fc_df[fc_df["type"] == "Forecast"][["month_dt","revenue"]].copy()
             forecast_only.columns = ["Month", "Forecasted Revenue ($)"]
@@ -812,7 +785,7 @@ def main_dashboard():
                 color_continuous_scale=["#ef4444","#f59e0b","#22c55e"],
                 template="plotly_dark", title="Bottom 15 Stock Levels",
             )
-            fig_stock.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=80), showlegend=False)
+            fig_stock.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=80))
             st.plotly_chart(fig_stock, use_container_width=True)
 
         with col_b:
@@ -825,7 +798,7 @@ def main_dashboard():
                     hole=0.55, template="plotly_dark", title="Products by Category",
                     color_discrete_sequence=px.colors.sequential.Plasma_r,
                 )
-                fig_donut.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
+                fig_donut.update_layout(**CHART_LAYOUT, showlegend=True)
                 st.plotly_chart(fig_donut, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────
@@ -864,7 +837,7 @@ def main_dashboard():
                 template="plotly_dark", title="Expected vs Actual Delivery",
                 labels={"expected_delivery":"Expected","actual_delivery":"Actual","delay_days":"Delay (days)"},
             )
-            fig_scatter.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+            fig_scatter.update_layout(**CHART_LAYOUT)
             st.plotly_chart(fig_scatter, use_container_width=True)
         with c_b:
             delay_hist = px.histogram(
@@ -874,7 +847,7 @@ def main_dashboard():
                 template="plotly_dark", title="Delay Days Distribution",
                 labels={"delay_days":"Delay (days)"},
             )
-            delay_hist.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+            delay_hist.update_layout(**CHART_LAYOUT)
             st.plotly_chart(delay_hist, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────
@@ -906,7 +879,7 @@ def main_dashboard():
                 text="on_time_rate",
             )
             fig_score.update_traces(texttemplate="%{text}%", textposition="outside")
-            fig_score.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+            fig_score.update_layout(**CHART_LAYOUT)
             st.plotly_chart(fig_score, use_container_width=True)
             st.dataframe(score_df, use_container_width=True, hide_index=True)
         else:
@@ -969,76 +942,46 @@ def main_dashboard():
                 except Error as e:
                     st.error(f"❌ Query Error: {e}")
 
+    # ── Footer ────────────────────────────────────────────────────────
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
+        Supply Chain AI Enterprise · Built with Streamlit & MySQL
+    </div>""", unsafe_allow_html=True)
+
     # ─────────────────────────────────────────────────────────────────
-    # TAB 7 — NOTIFICATIONS
+    # TAB 7 — HUB
     # ─────────────────────────────────────────────────────────────────
     with tab7:
-        # ── Admin password gate ──────────────────────────────────────
+        # Admin password gate (only for lunalupa)
         if "notif_unlocked" not in st.session_state:
             st.session_state.notif_unlocked = False
 
-        # Top gate — only shown to admin (lunalupa)
-        _is_admin_check = st.session_state.get("username","") == "lunalupa"
+        _is_admin_check = st.session_state.get("username", "") == "lunalupa"
         if _is_admin_check and not st.session_state.notif_unlocked:
-            st.markdown("""
-            <div style="background:linear-gradient(135deg,rgba(30,27,75,0.9),rgba(17,24,39,0.95));
-                border:1px solid rgba(99,102,241,0.35);border-radius:20px;
-                padding:2.5rem 2rem;max-width:420px;margin:2rem auto;text-align:center;
-                animation:fadeInUp 0.6s ease both;
-                box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 40px rgba(99,102,241,0.1);">
-                <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔒</div>
-                <h3 style="color:#e2e8f0;margin:0.3rem 0;">Admin Access Required</h3>
-                <p style="color:#64748b;font-size:0.85rem;margin:0.5rem 0 1.5rem;">
-                    This section is restricted. Enter the admin password to continue.
-                </p>
-            </div>""", unsafe_allow_html=True)
-            _, mid_col, _ = st.columns([1, 1.2, 1])
-            with mid_col:
-                pwd = st.text_input("🔑 Admin Password", type="password", key="notif_pwd")
-                if st.button("Unlock →", use_container_width=True, key="notif_unlock_btn"):
-                    if pwd == st.secrets.get("NOTIF_PASSWORD", ""):
+            st.markdown("#### 🔒 Admin Access")
+            notif_pass = st.text_input("Admin password", type="password", key="notif_pass_input")
+            col_unlock, col_req = st.columns([1, 2])
+            with col_unlock:
+                if st.button("🔓 Unlock", key="notif_unlock_btn"):
+                    secret_pw = st.secrets.get("NOTIF_PASSWORD", "")
+                    if notif_pass == secret_pw:
                         st.session_state.notif_unlocked = True
+                        st.success("✅ Unlocked!")
                         st.rerun()
                     else:
-                        st.error("❌ Incorrect password")
-
-                st.markdown("<div style='text-align:center;margin-top:1rem;'>", unsafe_allow_html=True)
-                st.markdown("<p style='color:#475569;font-size:0.8rem;margin-bottom:0.5rem;'>Don\'t have access?</p>", unsafe_allow_html=True)
-                if st.button("�� Request Admin Access", use_container_width=True, key="request_access_btn"):
-                    requester = st.session_state.get("username", "Unknown user")
-                    requester_email = st.session_state.get("user_email", "Not saved")
-                    body = f"""
-                    <p style="color:#94a3b8;">A user has requested admin access to the Notifications tab on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
-                    <table style="margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;width:100%;border-collapse:collapse;">
-                        <tr style="background:rgba(99,102,241,0.2);">
-                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Field</th>
-                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Value</th>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 14px;color:#94a3b8;">Username</td>
-                            <td style="padding:8px 14px;color:#e2e8f0;">{requester}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 14px;color:#94a3b8;">Email</td>
-                            <td style="padding:8px 14px;color:#e2e8f0;">{requester_email}</td>
-                        </tr>
-                    </table>
-                    <p style="color:#64748b;font-size:0.82rem;margin-top:16px;">
-                        Reply to their email or share the admin password if you approve this request.
-                    </p>"""
-                    html = email_template("🔐 Admin Access Request", body)
-                    ok = send_email("sashankmidhun@gmail.com", f"🔐 Admin Access Request from {requester}", html)
-                    if ok:
-                        st.success("✅ Request sent! The admin will get back to you.")
-                st.markdown("</div>", unsafe_allow_html=True)
+                        st.error("❌ Wrong password.")
+            with col_req:
+                if st.button("📨 Request Admin Access", key="notif_req_access_btn"):
+                    req_user = st.session_state.get("username", "Unknown")
+                    body = f"<p style='color:#94a3b8;'>User <strong>{req_user}</strong> is requesting admin access to the Hub.</p>"
+                    html = email_template("🔒 Admin Access Request", body)
+                    send_email("sashankmidhun@gmail.com", f"Admin Access Request from {req_user}", html)
+                    st.info("📨 Request sent to admin.")
 
         st.markdown("### 📧 Email Notifications")
-        st.markdown("""
-        <p style="color:#94a3b8;margin-bottom:1.5rem;">
-            Save your email to receive alerts and request reports.
-        </p>""", unsafe_allow_html=True)
+        st.markdown("<p style='color:#94a3b8;'>Save your email to receive alerts and request reports.</p>", unsafe_allow_html=True)
 
-        # Pre-fill from saved email, allow update
         saved_email = st.session_state.get("user_email", "")
         email_input = st.text_input("📬 Your Email Address", value=saved_email, placeholder="you@example.com")
 
@@ -1047,286 +990,156 @@ def main_dashboard():
             if st.button("💾 Save Email", key="save_email_btn"):
                 if email_input:
                     try:
-                        conn   = mysql.connector.connect(**DB_CONFIG)
+                        conn = mysql.connector.connect(**DB_CONFIG)
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE users SET email=%s WHERE username=%s",
-                                       (email_input, st.session_state.username))
+                        cursor.execute("UPDATE users SET email=%s WHERE username=%s", (email_input, st.session_state.username))
                         conn.commit(); cursor.close(); conn.close()
                         st.session_state.user_email = email_input
                         st.success("✅ Email saved!")
+                        log_activity(st.session_state.get("username", "?"), f"Saved email: {email_input}")
                     except Exception as e:
                         st.error(f"Could not save: {e}")
                 else:
                     st.warning("Enter an email first.")
 
-        # Use saved email from session if input field is empty after save
         active_email = email_input or st.session_state.get("user_email", "")
 
         if active_email:
             st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-
-            # Send section — self-reports for users, full panel for admin
-            is_admin = st.session_state.get("username","") == "lunalupa"
+            is_admin = st.session_state.get("username", "") == "lunalupa"
 
             if not is_admin:
-                # Request reports from admin
                 st.markdown("#### 📩 Send Yourself a Report")
-                st.markdown("<p style=\'color:#64748b;font-size:0.85rem;margin-bottom:1rem;\'>Send yourself a report or request all reports from the admin.</p>", unsafe_allow_html=True)
-
-                # Request All Reports button
+                st.markdown("<p style='color:#64748b;font-size:0.85rem;margin-bottom:1rem;'>Send yourself a report or request all reports from the admin.</p>", unsafe_allow_html=True)
                 if st.button("📬 Request All Reports from Admin", use_container_width=False, key="req_all_reports"):
                     req_user = st.session_state.get("username", "Unknown")
-                    req_email = active_email
-                    body = f"""
-                    <p style="color:#94a3b8;">A user has requested all reports on <strong style="color:#a5b4fc;">Traqify</strong>.</p>
-                    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
-                        <tr style="background:rgba(99,102,241,0.2);">
-                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Field</th>
-                            <th style="padding:10px 14px;color:#a5b4fc;text-align:left;">Value</th>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 14px;color:#94a3b8;">Username</td>
-                            <td style="padding:8px 14px;color:#e2e8f0;">{req_user}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 14px;color:#94a3b8;">Email</td>
-                            <td style="padding:8px 14px;color:#e2e8f0;">{req_email}</td>
-                        </tr>
-                    </table>
-                    <p style="color:#64748b;font-size:0.82rem;margin-top:16px;">
-                        Go to the Traqify admin panel → Notifications → Send Report to Specific User → select this user and send all reports.
-                    </p>"""
+                    body = f"<p style='color:#94a3b8;'>User <strong>{req_user}</strong> ({active_email}) has requested all reports.</p>"
                     html = email_template("📊 Report Request", body)
                     ok = send_email("traqify.alerts@gmail.com", f"📊 Report Request from {req_user}", html)
                     if ok:
                         st.success("✅ Request sent! The admin will send your reports shortly.")
-
+                    log_activity(req_user, "Requested all reports from admin")
                 st.markdown("---")
-                st.markdown("<p style=\'color:#475569;font-size:0.8rem;\'>Or send yourself a quick report right now:</p>", unsafe_allow_html=True)
                 u_col1, u_col2, u_col3 = st.columns(3)
                 with u_col1:
                     if st.button("📤 My Low Stock Report", use_container_width=True, key="u_btn_stock"):
                         ls_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
                         if ls_df.empty:
-                            st.info("No low stock items in your data.")
+                            st.info("No low stock items.")
                         else:
                             with st.spinner("Sending..."):
                                 ok = send_low_stock_alert(active_email, ls_df)
-                            if ok: st.success(f"✅ Sent to {active_email}")
+                            if ok:
+                                st.success(f"✅ Sent to {active_email}")
                 with u_col2:
                     if st.button("📤 My Delay Report", use_container_width=True, key="u_btn_delay"):
                         dl_df = shipments_df[shipments_df["delay_days"] > 0]
                         if dl_df.empty:
-                            st.info("No delays in your data.")
+                            st.info("No delays.")
                         else:
                             with st.spinner("Sending..."):
                                 ok = send_delay_alert(active_email, dl_df)
-                            if ok: st.success(f"✅ Sent to {active_email}")
+                            if ok:
+                                st.success(f"✅ Sent to {active_email}")
                 with u_col3:
                     if st.button("📤 My Summary Report", use_container_width=True, key="u_btn_summary"):
                         with st.spinner("Sending..."):
                             ok = send_summary_email(active_email, total_rev, delayed_count, low_stock, product_count)
-                        if ok: st.success(f"✅ Sent to {active_email}")
+                        if ok:
+                            st.success(f"✅ Sent to {active_email}")
 
             if is_admin and not st.session_state.notif_unlocked:
-                st.markdown("""
-                <div style="background:rgba(99,102,241,0.08);border:1px dashed rgba(99,102,241,0.3);
-                    border-radius:12px;padding:1.2rem;text-align:center;">
-                    <div style="font-size:1.5rem;">🔒</div>
-                    <p style="color:#64748b;margin:0.4rem 0 0;font-size:0.85rem;">
-                        Enter the admin password above to access the admin panel.
-                    </p>
-                </div>""", unsafe_allow_html=True)
+                st.markdown("""<div style="background:rgba(99,102,241,0.08);border:1px dashed rgba(99,102,241,0.3);border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:1.5rem;">🔒</div><p style="color:#64748b;margin:0.4rem 0 0;font-size:0.85rem;">Enter the admin password above to access the admin panel.</p></div>""", unsafe_allow_html=True)
             elif is_admin:
                 st.markdown("#### Choose what to send:")
                 col_n1, col_n2, col_n3 = st.columns(3)
-
                 with col_n1:
-                    st.markdown("""
-                    <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
-                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                        <div style="font-size:1.8rem;">⚠️</div>
-                        <div style="color:#f87171;font-weight:600;margin-top:4px;">Low Stock Alert</div>
-                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                            Sends a list of all products below reorder level
-                        </div>
-                    </div>""", unsafe_allow_html=True)
                     low_stock_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
                     if st.button("📤 Send Low Stock Alert", use_container_width=True, key="btn_stock"):
                         if low_stock_df.empty:
-                            st.info("No low stock items to report.")
+                            st.info("No low stock items.")
                         else:
                             with st.spinner("Sending..."):
-                                ok = send_low_stock_alert(email_input, low_stock_df)
+                                ok = send_low_stock_alert(active_email, low_stock_df)
                             if ok:
-                                st.success(f"✅ Sent to {email_input}")
-
+                                st.success(f"✅ Sent to {active_email}")
                 with col_n2:
-                    st.markdown("""
-                    <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);
-                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                        <div style="font-size:1.8rem;">🚨</div>
-                        <div style="color:#fb923c;font-weight:600;margin-top:4px;">Delay Alert</div>
-                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                            Sends details of all delayed shipments
-                        </div>
-                    </div>""", unsafe_allow_html=True)
                     delayed_df = shipments_df[shipments_df["delay_days"] > 0]
                     if st.button("📤 Send Delay Alert", use_container_width=True, key="btn_delay"):
                         if delayed_df.empty:
-                            st.info("No delayed shipments to report.")
+                            st.info("No delays.")
                         else:
                             with st.spinner("Sending..."):
-                                ok = send_delay_alert(email_input, delayed_df)
+                                ok = send_delay_alert(active_email, delayed_df)
                             if ok:
-                                st.success(f"✅ Sent to {email_input}")
-
+                                st.success(f"✅ Sent to {active_email}")
                 with col_n3:
-                    st.markdown("""
-                    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
-                        border-radius:12px;padding:1.2rem;text-align:center;margin-bottom:0.8rem;">
-                        <div style="font-size:1.8rem;">📊</div>
-                        <div style="color:#a5b4fc;font-weight:600;margin-top:4px;">Summary Report</div>
-                        <div style="color:#64748b;font-size:0.8rem;margin-top:4px;">
-                            Full dashboard KPI summary in your inbox
-                        </div>
-                    </div>""", unsafe_allow_html=True)
                     if st.button("📤 Send Summary Report", use_container_width=True, key="btn_summary"):
                         with st.spinner("Sending..."):
-                            ok = send_summary_email(email_input, total_rev, delayed_count, low_stock, product_count)
+                            ok = send_summary_email(active_email, total_rev, delayed_count, low_stock, product_count)
                         if ok:
-                            st.success(f"✅ Sent to {email_input}")
+                            st.success(f"✅ Sent to {active_email}")
 
-            # ── Send report to a specific user (admin only) ──────────
-            if st.session_state.get('username','') == 'lunalupa':
-                st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-                st.markdown("#### 📤 Send Report to a Specific User")
-                st.markdown("<p style=\'color:#64748b;font-size:0.85rem;\'>Look up a registered user and send them a report directly.</p>", unsafe_allow_html=True)
-                try:
-                    conn_u = mysql.connector.connect(**DB_CONFIG)
-                    users_df = pd.read_sql("SELECT username, email FROM users WHERE email IS NOT NULL AND email != ''", conn_u)
-                    conn_u.close()
-                except Exception:
-                    users_df = pd.DataFrame(columns=["username","email"])
-                if users_df.empty:
-                    st.info("No users with saved emails found.")
-                else:
-                    user_options = {f"{row.username} ({row.email})": row.email for _, row in users_df.iterrows()}
-                    selected_user = st.selectbox("👤 Select User", list(user_options.keys()), key="admin_user_select")
-                    target_email  = user_options[selected_user]
-                    report_type   = st.selectbox("📊 Report Type", ["Low Stock Alert", "Shipment Delay Alert", "Summary Report"], key="admin_report_type")
-                    if st.button("📤 Send to User", use_container_width=False, key="admin_send_btn"):
-                        with st.spinner(f"Sending {report_type} to {target_email}..."):
-                            if report_type == "Low Stock Alert":
-                                ls_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
-                                ok = send_low_stock_alert(target_email, ls_df) if not ls_df.empty else False
-                                if ls_df.empty: st.info("No low stock items to report.")
-                            elif report_type == "Shipment Delay Alert":
-                                dl_df = shipments_df[shipments_df["delay_days"] > 0]
-                                ok = send_delay_alert(target_email, dl_df) if not dl_df.empty else False
-                                if dl_df.empty: st.info("No delayed shipments to report.")
-                            else:
-                                ok = send_summary_email(target_email, total_rev, delayed_count, low_stock, product_count)
-                        if ok:
-                            st.success(f"✅ {report_type} sent to {target_email}")
-
-            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown("""
-            <div style="background:rgba(15,14,23,0.6);border:1px solid rgba(99,102,241,0.15);
-                border-radius:10px;padding:1rem 1.2rem;">
-                <p style="color:#475569;font-size:0.8rem;margin:0;">
-                    ⚙️ <strong style="color:#64748b;">Setup required:</strong>
-                    Add <code style="color:#a5b4fc;">RESEND_API_KEY</code> to your Streamlit secrets.
-                    Get a free key at <a href="https://resend.com" style="color:#6366f1;">resend.com</a> (free tier: 100 emails/day).
-                </p>
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);
-                border-radius:12px;padding:2rem;text-align:center;">
-                <div style="font-size:2.5rem;margin-bottom:0.5rem;">📬</div>
-                <p style="color:#64748b;margin:0;">Enter your email address above to get started.</p>
-            </div>""", unsafe_allow_html=True)
-
-
-    # ─────────────────────────────────────────────────────────────────
-    # TAB 8 — PDF EXPORT & GOOGLE SHEETS
-    # ─────────────────────────────────────────────────────────────────
+                # Send to specific user (admin only)
+                if st.session_state.get("username", "") == "lunalupa":
+                    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+                    st.markdown("#### 📤 Send Report to a Specific User")
+                    try:
+                        conn_u = mysql.connector.connect(**DB_CONFIG)
+                        users_df_notif = pd.read_sql("SELECT username, email FROM users WHERE email IS NOT NULL AND email != ''", conn_u)
+                        conn_u.close()
+                    except Exception:
+                        users_df_notif = pd.DataFrame(columns=["username", "email"])
+                    if not users_df_notif.empty:
+                        user_options = {f"{row.username} ({row.email})": row.email for _, row in users_df_notif.iterrows()}
+                        selected_user = st.selectbox("👤 Select User", list(user_options.keys()), key="admin_user_select")
+                        target_email = user_options[selected_user]
+                        report_type = st.selectbox("📊 Report Type", ["Low Stock Alert", "Shipment Delay Alert", "Summary Report"], key="admin_report_type")
+                        if st.button("📤 Send to User", key="admin_send_btn"):
+                            with st.spinner(f"Sending {report_type} to {target_email}..."):
+                                if report_type == "Low Stock Alert":
+                                    ls_df = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                                    ok = send_low_stock_alert(target_email, ls_df) if not ls_df.empty else False
+                                elif report_type == "Shipment Delay Alert":
+                                    dl_df = shipments_df[shipments_df["delay_days"] > 0]
+                                    ok = send_delay_alert(target_email, dl_df) if not dl_df.empty else False
+                                else:
+                                    ok = send_summary_email(target_email, total_rev, delayed_count, low_stock, product_count)
+                            if ok:
+                                st.success(f"✅ {report_type} sent to {target_email}")
+                            log_activity(st.session_state.get("username", "?"), f"Sent {report_type} to {target_email}")
 
         st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
         with st.expander("📑 PDF Export & Google Sheets", expanded=False):
-            st.markdown("### 📑 PDF Export & Google Sheets")
-
             col_pdf, col_sheets = st.columns(2)
-
             with col_pdf:
-                st.markdown("""
-                <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
-                    border-radius:14px;padding:1.5rem;margin-bottom:1rem;">
-                    <div style="font-size:2rem;text-align:center;">📄</div>
-                    <h4 style="color:#a5b4fc;text-align:center;margin:0.5rem 0;">Download PDF Report</h4>
-                    <p style="color:#64748b;font-size:0.82rem;text-align:center;margin:0;">
-                        Full KPI summary as a styled PDF
-                    </p>
-                </div>""", unsafe_allow_html=True)
-                pdf_bytes = generate_pdf_report(
-                    total_rev, delayed_count, low_stock, product_count,
-                    st.session_state.get("username","user")
-                )
+                st.markdown("#### 📄 Download PDF Report")
+                pdf_bytes = generate_pdf_report(total_rev, delayed_count, low_stock, product_count, st.session_state.get("username", "user"))
                 if pdf_bytes:
-                    st.download_button(
-                        "📥 Download PDF Report",
-                        data=pdf_bytes,
-                        file_name=f"traqify_report_{datetime.date.today()}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                    )
+                    st.download_button("📥 Download PDF", data=pdf_bytes, file_name=f"traqify_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
                 else:
-                    st.warning("Install `fpdf2` to enable PDF export. Add `fpdf2>=2.7.0` to requirements.txt")
-
+                    st.warning("fpdf2 not installed. Add fpdf2>=2.7.0 to requirements.txt")
             with col_sheets:
-                st.markdown("""
-                <div style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);
-                    border-radius:14px;padding:1.5rem;margin-bottom:1rem;">
-                    <div style="font-size:2rem;text-align:center;">📊</div>
-                    <h4 style="color:#67e8f9;text-align:center;margin:0.5rem 0;">Google Sheets Sync</h4>
-                    <p style="color:#64748b;font-size:0.82rem;text-align:center;margin:0;">
-                        Load data directly from a public Google Sheet
-                    </p>
-                </div>""", unsafe_allow_html=True)
-                sheet_url = st.text_input("📎 Google Sheet URL (must be public/shared)", placeholder="https://docs.google.com/spreadsheets/d/...", key="gsheet_url")
+                st.markdown("#### 📊 Load from Google Sheets")
+                sheet_url = st.text_input("📎 Sheet URL (public)", placeholder="https://docs.google.com/spreadsheets/d/...", key="gsheet_url")
                 sheet_type = st.selectbox("Load as", ["Sales", "Products", "Shipments"], key="gsheet_type")
-                if st.button("🔄 Load from Google Sheets", use_container_width=True, key="load_gsheet"):
-                    with st.spinner("Fetching from Google Sheets..."):
+                if st.button("🔄 Load from Google Sheets", key="load_gsheet"):
+                    with st.spinner("Fetching..."):
                         df_gs, msg = load_from_gsheet(sheet_url)
-                    if msg == "ok" and df_gs is not None:
-                        st.success(f"✅ Loaded {len(df_gs)} rows from Google Sheets")
-                        st.dataframe(df_gs, use_container_width=True, height=280)
-                        if sheet_type == "Sales":
-                            st.session_state["gs_sales"] = df_gs
-                        elif sheet_type == "Products":
-                            st.session_state["gs_products"] = df_gs
-                        else:
-                            st.session_state["gs_shipments"] = df_gs
-                        log_activity(st.session_state.get("username","?"), f"Loaded {sheet_type} from Google Sheets")
+                    if msg == "ok":
+                        st.success(f"✅ Loaded {len(df_gs)} rows")
+                        st.dataframe(df_gs, use_container_width=True, height=200)
+                        log_activity(st.session_state.get("username", "?"), f"Loaded {sheet_type} from Google Sheets")
                     else:
-                        st.error(f"❌ Failed: {msg}")
-                st.markdown("""
-                <p style="color:#475569;font-size:0.78rem;margin-top:0.5rem;">
-                    ℹ️ Make sure the sheet is shared as <strong style="color:#67e8f9;">Anyone with the link → Viewer</strong>
-                </p>""", unsafe_allow_html=True)
+                        st.error(f"❌ {msg}")
 
-            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown("### 📅 Schedule Weekly Email Report")
-            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Set a day to automatically receive a summary report every week.</p>", unsafe_allow_html=True)
-
+        with st.expander("📅 Schedule Weekly Email Report", expanded=False):
             sched_col1, sched_col2 = st.columns(2)
             with sched_col1:
-                sched_day = st.selectbox("📆 Send every", ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], key="sched_day")
+                sched_day = st.selectbox("📆 Send every", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], key="sched_day")
             with sched_col2:
-                sched_email = st.text_input("📬 Send to", value=st.session_state.get("user_email",""), key="sched_email")
-
+                sched_email = st.text_input("📬 Send to", value=st.session_state.get("user_email", ""), key="sched_email")
             if st.button("💾 Save Schedule", key="save_schedule"):
                 if sched_email:
                     try:
@@ -1336,78 +1149,55 @@ def main_dashboard():
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             username VARCHAR(255) UNIQUE,
                             email VARCHAR(255),
-                            day_of_week VARCHAR(20),
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );""")
-                        cursor.execute("""INSERT INTO email_schedules (username, email, day_of_week)
-                            VALUES (%s, %s, %s)
-                            ON DUPLICATE KEY UPDATE email=%s, day_of_week=%s""",
-                            (st.session_state.get("username","?"), sched_email, sched_day, sched_email, sched_day))
+                            day_of_week VARCHAR(20));""")
+                        cursor.execute(
+                            "INSERT INTO email_schedules (username, email, day_of_week) VALUES (%s,%s,%s) ON DUPLICATE KEY UPDATE email=%s, day_of_week=%s",
+                            (st.session_state.get("username", "?"), sched_email, sched_day, sched_email, sched_day),
+                        )
                         conn.commit(); cursor.close(); conn.close()
-                        log_activity(st.session_state.get("username","?"), f"Set weekly report schedule: {sched_day} to {sched_email}")
-                        st.success(f"✅ Weekly report scheduled for every {sched_day} → {sched_email}")
+                        log_activity(st.session_state.get("username", "?"), f"Scheduled weekly report: {sched_day} to {sched_email}")
+                        st.success(f"✅ Scheduled every {sched_day} → {sched_email}")
                     except Exception as e:
-                        st.error(f"Could not save schedule: {e}")
+                        st.error(f"Could not save: {e}")
                 else:
-                    st.warning("Enter an email address first.")
-
-            # Show existing schedules (admin only)
-            if st.session_state.get("username","") == "lunalupa":
-                st.markdown("#### 🗓️ All Scheduled Reports")
+                    st.warning("Enter an email first.")
+            if st.session_state.get("username", "") == "lunalupa":
                 try:
                     conn = mysql.connector.connect(**DB_CONFIG)
                     sched_df = pd.read_sql("SELECT username, email, day_of_week FROM email_schedules", conn)
                     conn.close()
                     if not sched_df.empty:
                         st.dataframe(sched_df, use_container_width=True, hide_index=True)
-                        if st.button("📤 Send Now to All Scheduled Users", key="send_scheduled_now"):
+                        if st.button("📤 Send Now to All Scheduled Users", key="send_all_sched"):
                             sent = 0
                             for _, row in sched_df.iterrows():
                                 ok = send_summary_email(row["email"], total_rev, delayed_count, low_stock, product_count)
-                                if ok: sent += 1
+                                if ok:
+                                    sent += 1
                             st.success(f"✅ Sent to {sent} users")
-                    else:
-                        st.info("No scheduled reports yet.")
                 except Exception as e:
-                    st.info(f"Schedule table not ready: {e}")
-
-        # ─────────────────────────────────────────────────────────────────
-        # TAB 9 — ACTIVITY LOG (ADMIN ONLY)
-        # ─────────────────────────────────────────────────────────────────
+                    st.info(f"No schedules yet: {e}")
 
         with st.expander("📋 Activity Log", expanded=False):
-            st.markdown("### 📋 Activity Log")
-            if st.session_state.get("username","") == "lunalupa":
+            if st.session_state.get("username", "") == "lunalupa":
                 log_df = get_activity_log(200)
                 if log_df.empty:
-                    st.info("No activity recorded yet.")
+                    st.info("No activity yet.")
                 else:
-                    # Search
-                    log_search = st.text_input("🔍 Search activity", placeholder="username or action", key="log_search")
+                    log_search = st.text_input("🔍 Search", key="log_search")
                     if log_search:
                         mask = log_df.apply(lambda r: r.astype(str).str.contains(log_search, case=False).any(), axis=1)
                         log_df = log_df[mask]
-
-                    st.dataframe(log_df, use_container_width=True, height=500, hide_index=True)
-                    st.download_button(
-                        "📥 Export Log (CSV)",
-                        data=log_df.to_csv(index=False).encode(),
-                        file_name=f"activity_log_{datetime.date.today()}.csv",
-                        mime="text/csv",
-                    )
+                    st.dataframe(log_df, use_container_width=True, height=400, hide_index=True)
+                    st.download_button("📥 Export Log (CSV)", data=log_df.to_csv(index=False).encode(), file_name=f"activity_{datetime.date.today()}.csv", mime="text/csv")
             else:
-                st.markdown("""
-                <div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);
-                    border-radius:12px;padding:2rem;text-align:center;">
-                    <div style="font-size:2.5rem;">🔒</div>
-                    <p style="color:#64748b;margin:0.5rem 0 0;">Activity log is only visible to admins.</p>
-                </div>""", unsafe_allow_html=True)
+                st.markdown("""<div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);border-radius:12px;padding:2rem;text-align:center;"><div style="font-size:2.5rem;">🔒</div><p style="color:#64748b;margin:0.5rem 0 0;">Activity log is admin-only.</p></div>""", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
-        Traqify · Built with Streamlit & MySQL
+        Supply Chain AI Enterprise · Built with Streamlit & MySQL
     </div>""", unsafe_allow_html=True)
 
 
