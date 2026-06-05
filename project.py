@@ -453,8 +453,6 @@ CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(15,14,23,0.6)",
     font=dict(family="Inter", color="#e2e8f0"),
-    margin=dict(l=10, r=10, t=40, b=10),
-    showlegend=False,
 )
 
 def to_excel_bytes(dfs: dict) -> bytes:
