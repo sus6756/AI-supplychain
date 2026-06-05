@@ -492,6 +492,82 @@ def forecast_revenue(sales_df: pd.DataFrame, periods: int = 3) -> pd.DataFrame:
     forecast_df["type"] = "Forecast"
     return pd.concat([monthly, forecast_df], ignore_index=True)
 
+def detect_anomalies(sales_df: pd.DataFrame, threshold: float = 2.0) -> pd.DataFrame:
+    """Flag monthly revenue anomalies using Z-score. Returns annotated DataFrame."""
+    df = sales_df.copy()
+    df["month_dt"] = df["sale_date"].dt.to_period("M").dt.to_timestamp()
+    monthly = df.groupby("month_dt")["revenue"].sum().reset_index()
+    mean = monthly["revenue"].mean()
+    std  = monthly["revenue"].std()
+    if std == 0:
+        monthly["z_score"] = 0.0
+    else:
+        monthly["z_score"] = (monthly["revenue"] - mean) / std
+    monthly["anomaly"] = monthly["z_score"].abs() > threshold
+    monthly["type"]    = monthly.apply(
+        lambda r: "🔺 Spike" if r["z_score"] > threshold
+                  else ("🔻 Drop" if r["z_score"] < -threshold else "✅ Normal"),
+        axis=1
+    )
+    return monthly
+
+
+def detect_delay_anomalies(shipments_df: pd.DataFrame, threshold: float = 2.0) -> pd.DataFrame:
+    """Flag suppliers with unusually high average delays using Z-score."""
+    if "supplier_id" not in shipments_df.columns:
+        return pd.DataFrame()
+    sup = shipments_df.groupby("supplier_id")["delay_days"].mean().reset_index()
+    sup.columns = ["supplier_id", "avg_delay"]
+    mean = sup["avg_delay"].mean()
+    std  = sup["avg_delay"].std()
+    if std == 0:
+        sup["z_score"] = 0.0
+    else:
+        sup["z_score"] = (sup["avg_delay"] - mean) / std
+    sup["flag"] = sup["z_score"].apply(
+        lambda z: "🚨 Critical" if z > threshold else ("⚠️ Watch" if z > 1 else "✅ Normal")
+    )
+    return sup.sort_values("avg_delay", ascending=False)
+
+
+def smart_reorder(products_df: pd.DataFrame, sales_df: pd.DataFrame, days_ahead: int = 30) -> pd.DataFrame:
+    """Predict reorder urgency based on sales velocity."""
+    df_s = sales_df.copy()
+    df_s["month_dt"] = df_s["sale_date"].dt.to_period("M").dt.to_timestamp()
+
+    if "product_id" not in df_s.columns or "quantity_sold" not in df_s.columns:
+        return pd.DataFrame()
+
+    # Average daily sales per product
+    date_range = (df_s["sale_date"].max() - df_s["sale_date"].min()).days or 1
+    velocity   = df_s.groupby("product_id")["quantity_sold"].sum() / date_range
+    velocity   = velocity.reset_index()
+    velocity.columns = ["product_id", "daily_sales"]
+
+    merged = products_df.merge(velocity, on="product_id", how="left")
+    merged["daily_sales"]    = merged["daily_sales"].fillna(0)
+    merged["days_until_out"] = merged.apply(
+        lambda r: round(r["stock_quantity"] / r["daily_sales"])
+                  if r["daily_sales"] > 0 else 9999,
+        axis=1
+    )
+    merged["urgency"] = merged["days_until_out"].apply(
+        lambda d: "🔴 Order Now"   if d <= 7
+                  else ("🟠 Soon"  if d <= days_ahead
+                  else ("🟡 Watch" if d <= days_ahead * 2
+                  else "🟢 OK"))
+    )
+    merged["units_to_order"] = merged.apply(
+        lambda r: max(0, int(r["daily_sales"] * days_ahead * 1.2) - r["stock_quantity"])
+                  if r["daily_sales"] > 0 else 0,
+        axis=1
+    )
+    return merged[["product_id",
+                   *([c] if (c := "product_name") in merged.columns else []),
+                   "stock_quantity","daily_sales","days_until_out","urgency","units_to_order"]
+                 ].sort_values("days_until_out")
+
+
 # ====================================================================
 # 5. AUTH PAGE
 # ====================================================================
@@ -686,7 +762,7 @@ def main_dashboard():
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
@@ -694,6 +770,7 @@ def main_dashboard():
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Hub",
+        "🤖 AI Insights",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -941,6 +1018,158 @@ def main_dashboard():
                     st.dataframe(df, use_container_width=True)
                 except Error as e:
                     st.error(f"❌ Query Error: {e}")
+
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 8 — AI INSIGHTS
+    # ─────────────────────────────────────────────────────────────────
+    with tab8:
+        st.markdown("### 🤖 AI-Powered Insights")
+        st.markdown("<p style='color:#94a3b8;'>Automated anomaly detection and smart reorder predictions based on your data.</p>", unsafe_allow_html=True)
+
+        ai_tab1, ai_tab2, ai_tab3 = st.tabs(["📈 Revenue Anomalies", "🚚 Delay Anomalies", "🔮 Smart Reorder"])
+
+        with ai_tab1:
+            st.markdown("#### 📈 Revenue Anomaly Detection")
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Flags months where revenue deviated significantly from the average using Z-score analysis.</p>", unsafe_allow_html=True)
+
+            threshold = st.slider("Sensitivity (Z-score threshold)", 1.0, 3.0, 2.0, 0.1, key="rev_threshold",
+                                  help="Lower = more sensitive. 2.0 is standard.")
+            anomaly_df = detect_anomalies(sales_df, threshold=threshold)
+
+            if anomaly_df.empty:
+                st.info("Not enough data to detect anomalies.")
+            else:
+                # Chart
+                fig_anom = px.bar(
+                    anomaly_df, x="month_dt", y="revenue",
+                    color="type",
+                    color_discrete_map={"🔺 Spike": "#22c55e", "🔻 Drop": "#ef4444", "✅ Normal": "#6366f1"},
+                    template="plotly_dark",
+                    title="Monthly Revenue — Anomalies Highlighted",
+                    labels={"month_dt": "Month", "revenue": "Revenue ($)", "type": "Status"},
+                )
+                fig_anom.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,14,23,0.6)",
+                    font=dict(family="Inter", color="#e2e8f0"),
+                    margin=dict(l=10, r=10, t=40, b=10),
+                    showlegend=True,
+                )
+                st.plotly_chart(fig_anom, use_container_width=True)
+
+                # Summary
+                spikes = anomaly_df[anomaly_df["type"] == "🔺 Spike"]
+                drops  = anomaly_df[anomaly_df["type"] == "🔻 Drop"]
+                c1, c2, c3 = st.columns(3)
+                c1.metric("✅ Normal Months",  len(anomaly_df[anomaly_df["type"] == "✅ Normal"]))
+                c2.metric("🔺 Revenue Spikes", len(spikes))
+                c3.metric("🔻 Revenue Drops",  len(drops))
+
+                flagged = anomaly_df[anomaly_df["anomaly"]][["month_dt", "revenue", "z_score", "type"]].copy()
+                flagged["revenue"]  = flagged["revenue"].map("${:,.0f}".format)
+                flagged["z_score"]  = flagged["z_score"].round(2)
+                flagged.columns     = ["Month", "Revenue", "Z-Score", "Status"]
+                if not flagged.empty:
+                    st.markdown("#### 🚨 Flagged Months")
+                    st.dataframe(flagged, use_container_width=True, hide_index=True)
+                else:
+                    st.success("✅ No anomalies detected with current sensitivity.")
+
+        with ai_tab2:
+            st.markdown("#### 🚚 Supplier Delay Anomaly Detection")
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Identifies suppliers whose average delay is unusually high compared to others.</p>", unsafe_allow_html=True)
+
+            delay_threshold = st.slider("Sensitivity (Z-score threshold)", 1.0, 3.0, 2.0, 0.1, key="delay_threshold")
+            delay_anom_df   = detect_delay_anomalies(shipments_df, threshold=delay_threshold)
+
+            if delay_anom_df.empty:
+                st.info("Need a `supplier_id` column in your shipments data.")
+            else:
+                fig_delay = px.bar(
+                    delay_anom_df, x="supplier_id", y="avg_delay",
+                    color="flag",
+                    color_discrete_map={"🚨 Critical": "#ef4444", "⚠️ Watch": "#f59e0b", "✅ Normal": "#22c55e"},
+                    template="plotly_dark",
+                    title="Average Delay by Supplier",
+                    labels={"supplier_id": "Supplier", "avg_delay": "Avg Delay (days)", "flag": "Status"},
+                    text="avg_delay",
+                )
+                fig_delay.update_traces(texttemplate="%{text:.1f}d", textposition="outside")
+                fig_delay.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,14,23,0.6)",
+                    font=dict(family="Inter", color="#e2e8f0"),
+                    margin=dict(l=10, r=10, t=40, b=10),
+                    showlegend=True,
+                )
+                st.plotly_chart(fig_delay, use_container_width=True)
+
+                critical = delay_anom_df[delay_anom_df["flag"] == "🚨 Critical"]
+                if not critical.empty:
+                    st.markdown("#### 🚨 Critical Suppliers")
+                    st.dataframe(critical[["supplier_id","avg_delay","z_score","flag"]], use_container_width=True, hide_index=True)
+                else:
+                    st.success("✅ No critically delayed suppliers detected.")
+
+        with ai_tab3:
+            st.markdown("#### 🔮 Smart Reorder Predictions")
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Predicts how many days until each product runs out based on current sales velocity.</p>", unsafe_allow_html=True)
+
+            days_ahead = st.slider("Planning horizon (days)", 7, 90, 30, key="reorder_days",
+                                   help="How far ahead to plan stock. 30 days is standard.")
+            reorder_df = smart_reorder(products_df, sales_df, days_ahead=days_ahead)
+
+            if reorder_df.empty:
+                st.info("Need `product_id` and `quantity_sold` columns in sales data.")
+            else:
+                # KPIs
+                urgent  = len(reorder_df[reorder_df["urgency"] == "🔴 Order Now"])
+                soon    = len(reorder_df[reorder_df["urgency"] == "🟠 Soon"])
+                ok      = len(reorder_df[reorder_df["urgency"].isin(["🟡 Watch","🟢 OK"])])
+                r1, r2, r3 = st.columns(3)
+                r1.metric("🔴 Order Now",  urgent)
+                r2.metric("🟠 Order Soon", soon)
+                r3.metric("🟢 OK",         ok)
+
+                # Color-coded chart
+                name_col = "product_name" if "product_name" in reorder_df.columns else "product_id"
+                fig_reorder = px.bar(
+                    reorder_df.head(20), x=name_col, y="days_until_out",
+                    color="urgency",
+                    color_discrete_map={
+                        "🔴 Order Now": "#ef4444",
+                        "🟠 Soon":      "#f59e0b",
+                        "🟡 Watch":     "#eab308",
+                        "🟢 OK":        "#22c55e",
+                    },
+                    template="plotly_dark",
+                    title="Days Until Stock Runs Out (Top 20 Products)",
+                    labels={name_col: "Product", "days_until_out": "Days Until Out", "urgency": "Status"},
+                )
+                fig_reorder.add_hline(y=days_ahead, line_dash="dash", line_color="#6366f1",
+                                       annotation_text=f"Planning horizon ({days_ahead}d)")
+                fig_reorder.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,14,23,0.6)",
+                    font=dict(family="Inter", color="#e2e8f0"),
+                    margin=dict(l=10, r=10, t=40, b=80),
+                    showlegend=True,
+                )
+                st.plotly_chart(fig_reorder, use_container_width=True)
+
+                # Table with urgency filter
+                urgency_filter = st.selectbox("Filter by urgency", ["All","🔴 Order Now","🟠 Soon","🟡 Watch","🟢 OK"], key="urgency_filter")
+                display_df = reorder_df if urgency_filter == "All" else reorder_df[reorder_df["urgency"] == urgency_filter]
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+                # Download
+                st.download_button(
+                    "📥 Download Reorder Plan (CSV)",
+                    data=reorder_df.to_csv(index=False).encode(),
+                    file_name=f"reorder_plan_{datetime.date.today()}.csv",
+                    mime="text/csv",
+                )
 
     # ── Footer ────────────────────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
