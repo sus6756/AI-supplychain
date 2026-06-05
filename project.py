@@ -1157,7 +1157,7 @@ def main_dashboard():
                 st.markdown("#### 📄 Download PDF Report")
                 pdf_bytes = generate_pdf_report(total_rev, delayed_count, low_stock, product_count, st.session_state.get("username", "user"))
                 if pdf_bytes:
-                    st.download_button("📥 Download PDF", data=pdf_bytes, file_name=f"traqify_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
+                    st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"traqify_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
                 else:
                     st.warning("fpdf2 not installed. Add fpdf2>=2.7.0 to requirements.txt")
             with col_sheets:
