@@ -1214,6 +1214,19 @@ def main_dashboard():
                                 st.success(f"✅ {report_type} sent to {target_email}")
                             log_activity(st.session_state.get("username", "?"), f"Sent {report_type} to {target_email}")
 
+            with st.expander("👥 User Management", expanded=False):
+                if st.session_state.get("username","") == "lunalupa":
+                    st.markdown("#### 👥 User Management")
+                    try:
+                        conn_um = mysql.connector.connect(**DB_CONFIG)
+                        um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
+                        conn_um.close()
+                    except Exception as e:
+                        um_df = pd.DataFrame()
+                        st.error(f"Could not load users: {e}")
+                    if not um_df.empty:
+                        st.dataframe(um_df, use_container_width=True, hide_index=True)
+
         st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
         with st.expander("📑 PDF Export & Google Sheets", expanded=False):
@@ -1386,18 +1399,6 @@ def main_dashboard():
                         file_name=f"reorder_{datetime.date.today()}.csv", mime="text/csv")
 
 
-        with st.expander("👥 User Management", expanded=False):
-            if st.session_state.get("username","") == "lunalupa":
-                st.markdown("#### 👥 User Management")
-                try:
-                    conn_um = mysql.connector.connect(**DB_CONFIG)
-                    um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
-                    conn_um.close()
-                except Exception as e:
-                    um_df = pd.DataFrame()
-                    st.error(f"Could not load users: {e}")
-                if not um_df.empty:
-                    st.dataframe(um_df, use_container_width=True, hide_index=True)
                     st.markdown("---")
                     col_um1, col_um2 = st.columns(2)
                     with col_um1:
