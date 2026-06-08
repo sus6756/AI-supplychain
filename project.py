@@ -627,6 +627,25 @@ def main_dashboard():
     st.sidebar.markdown("---")
     option = st.sidebar.radio("📂 Upload Type", ["Excel", "CSV"])
 
+    # ── Dark/Light Mode Toggle ───────────────────────────────────────
+    st.sidebar.markdown("---")
+    theme = st.sidebar.radio("🎨 Theme", ["🌙 Dark", "☀️ Light"], horizontal=True, key="theme_toggle")
+    if theme == "☀️ Light":
+        st.markdown("""<style>
+        .main { background: #f8fafc !important; }
+        .main .block-container { background: #f8fafc !important; }
+        [data-testid="stSidebar"] { background: linear-gradient(180deg,#1e1b4b,#312e81) !important; }
+        h1,h2,h3 { color: #1e1b4b !important; -webkit-text-fill-color: #1e1b4b !important; }
+        [data-testid="metric-container"] { background: white !important; border-color: rgba(99,102,241,0.4) !important; }
+        [data-testid="stMetricValue"] { color: #1e1b4b !important; }
+        p, label, .stMarkdown { color: #334155 !important; }
+        </style>""", unsafe_allow_html=True)
+
+    # ── Comparison Mode ─────────────────────────────────────────────
+    st.sidebar.markdown("---")
+    compare_mode = st.sidebar.checkbox("📊 Comparison Mode", key="compare_mode",
+                                        help="Compare two date ranges side by side")
+
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
@@ -711,6 +730,72 @@ def main_dashboard():
     c3.metric("📉 Low Stock Items",   low_stock)
     c4.metric("📦 Total Products",    product_count)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # ── KPI Targets ───────────────────────────────────────────────────
+    with st.expander("🎯 KPI Targets", expanded=False):
+        st.markdown("Set targets and track progress against your goals.")
+        t1, t2, t3 = st.columns(3)
+        rev_target   = t1.number_input("💰 Revenue Target ($)", min_value=0, value=int(st.session_state.get("rev_target", total_rev*1.1)), step=10000, key="rev_target")
+        delay_target = t2.number_input("⚠️ Max Delayed Shipments", min_value=0, value=int(st.session_state.get("delay_target", max(1, delayed_count))), key="delay_target")
+        stock_target = t3.number_input("📉 Max Low Stock Items", min_value=0, value=int(st.session_state.get("stock_target", max(1, low_stock))), key="stock_target")
+
+        p1, p2, p3 = st.columns(3)
+        rev_pct   = min(100, int(total_rev / rev_target * 100)) if rev_target else 0
+        delay_pct = max(0, int((1 - delayed_count / delay_target) * 100)) if delay_target else 100
+        stock_pct = max(0, int((1 - low_stock / stock_target) * 100)) if stock_target else 100
+
+        p1.markdown(f"**💰 Revenue Progress**")
+        p1.progress(rev_pct / 100, text=f"{rev_pct}% of ${rev_target:,.0f} target")
+        p2.markdown(f"**⚠️ Delay Score**")
+        p2.progress(delay_pct / 100, text=f"{delay_pct}% on-time rate")
+        p3.markdown(f"**📉 Stock Health**")
+        p3.progress(stock_pct / 100, text=f"{stock_pct}% stock health")
+
+    # ── Comparison Mode ───────────────────────────────────────────────
+    if st.session_state.get("compare_mode", False):
+        st.markdown("### 📊 Comparison Mode")
+        cmp1, cmp2 = st.columns(2)
+        with cmp1:
+            st.markdown("**Period A**")
+            range_a = st.date_input("Period A", value=(min_d, max_d), key="range_a")
+        with cmp2:
+            st.markdown("**Period B**")
+            mid_d = min_d + (max_d - min_d) // 2
+            range_b = st.date_input("Period B", value=(min_d, mid_d), key="range_b")
+
+        orig_sales = sales_df.copy()
+        if len(range_a) == 2:
+            df_a = orig_sales[(orig_sales["sale_date"].dt.date >= range_a[0]) & (orig_sales["sale_date"].dt.date <= range_a[1])]
+        else:
+            df_a = orig_sales
+        if len(range_b) == 2:
+            df_b = orig_sales[(orig_sales["sale_date"].dt.date >= range_b[0]) & (orig_sales["sale_date"].dt.date <= range_b[1])]
+        else:
+            df_b = orig_sales
+
+        cmp_a, cmp_b = st.columns(2)
+        with cmp_a:
+            rev_a = df_a["revenue"].sum()
+            st.metric("💰 Period A Revenue", f"${rev_a:,.0f}")
+            df_a["month"] = df_a["sale_date"].dt.strftime("%Y-%m")
+            monthly_a = df_a.groupby("month")["revenue"].sum().reset_index()
+            fig_a = px.bar(monthly_a, x="month", y="revenue", template="plotly_dark",
+                           color_discrete_sequence=["#6366f1"], title="Period A Revenue")
+            fig_a.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,14,23,0.6)",
+                                font=dict(family="Inter", color="#e2e8f0"), margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+            st.plotly_chart(fig_a, use_container_width=True)
+        with cmp_b:
+            rev_b = df_b["revenue"].sum()
+            delta = rev_a - rev_b
+            st.metric("💰 Period B Revenue", f"${rev_b:,.0f}", delta=f"${delta:,.0f} vs A")
+            df_b["month"] = df_b["sale_date"].dt.strftime("%Y-%m")
+            monthly_b = df_b.groupby("month")["revenue"].sum().reset_index()
+            fig_b = px.bar(monthly_b, x="month", y="revenue", template="plotly_dark",
+                           color_discrete_sequence=["#06b6d4"], title="Period B Revenue")
+            fig_b.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,14,23,0.6)",
+                                font=dict(family="Inter", color="#e2e8f0"), margin=dict(l=10,r=10,t=40,b=10), showlegend=False)
+            st.plotly_chart(fig_b, use_container_width=True)
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # ── Export Button ─────────────────────────────────────────────────
     export_bytes = to_excel_bytes({
@@ -981,6 +1066,63 @@ def main_dashboard():
                     st.dataframe(df, use_container_width=True)
                 except Error as e:
                     st.error(f"❌ Query Error: {e}")
+
+
+        with st.expander("👥 User Management", expanded=False):
+            if st.session_state.get("username","") == "lunalupa":
+                st.markdown("#### 👥 User Management")
+                try:
+                    conn_um = mysql.connector.connect(**DB_CONFIG)
+                    um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
+                    conn_um.close()
+                except Exception as e:
+                    um_df = pd.DataFrame()
+                    st.error(f"Could not load users: {e}")
+
+                if not um_df.empty:
+                    st.dataframe(um_df, use_container_width=True, hide_index=True)
+                    st.markdown("---")
+                    col_um1, col_um2 = st.columns(2)
+
+                    with col_um1:
+                        st.markdown("**🗑️ Delete User**")
+                        del_user = st.selectbox("Select user to delete",
+                            [u for u in um_df["username"].tolist() if u != "lunalupa"],
+                            key="del_user_select")
+                        if st.button("🗑️ Delete", key="del_user_btn"):
+                            try:
+                                conn_d = mysql.connector.connect(**DB_CONFIG)
+                                cursor_d = conn_d.cursor()
+                                cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
+                                conn_d.commit(); cursor_d.close(); conn_d.close()
+                                log_activity("lunalupa", f"Deleted user: {del_user}")
+                                st.success(f"✅ Deleted {del_user}")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+
+                    with col_um2:
+                        st.markdown("**🔑 Reset Password**")
+                        reset_user = st.selectbox("Select user", um_df["username"].tolist(), key="reset_user_select")
+                        new_pw = st.text_input("New Password", type="password", key="reset_pw")
+                        if st.button("🔑 Reset Password", key="reset_pw_btn"):
+                            if new_pw:
+                                try:
+                                    conn_r = mysql.connector.connect(**DB_CONFIG)
+                                    cursor_r = conn_r.cursor()
+                                    cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
+                                    conn_r.commit(); cursor_r.close(); conn_r.close()
+                                    log_activity("lunalupa", f"Reset password for: {reset_user}")
+                                    st.success(f"✅ Password reset for {reset_user}")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                            else:
+                                st.warning("Enter a new password first.")
+            else:
+                st.markdown("""<div style="text-align:center;padding:1.5rem;">
+                    <div style="font-size:2rem;">🔒</div>
+                    <p style="color:#64748b;">User management is admin-only.</p>
+                </div>""", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
