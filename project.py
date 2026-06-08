@@ -627,19 +627,6 @@ def main_dashboard():
     st.sidebar.markdown("---")
     option = st.sidebar.radio("📂 Upload Type", ["Excel", "CSV"])
 
-    st.sidebar.markdown("---")
-    theme = st.sidebar.radio("🎨 Theme", ["🌙 Dark", "☀️ Light"], horizontal=True, key="theme_toggle")
-    if theme == "☀️ Light":
-        st.markdown("""<style>
-        .main,.main .block-container{background:#f8fafc!important;}
-        h1,h2,h3{color:#1e1b4b!important;-webkit-text-fill-color:#1e1b4b!important;}
-        [data-testid="metric-container"]{background:white!important;}
-        [data-testid="stMetricValue"]{color:#1e1b4b!important;}
-        </style>""", unsafe_allow_html=True)
-
-    st.sidebar.markdown("---")
-    compare_mode = st.sidebar.checkbox("📊 Comparison Mode", key="compare_mode")
-
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
@@ -724,58 +711,6 @@ def main_dashboard():
     c3.metric("📉 Low Stock Items",   low_stock)
     c4.metric("📦 Total Products",    product_count)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-
-    # ── KPI Targets ───────────────────────────────────────────────────
-    with st.expander("🎯 KPI Targets", expanded=False):
-        t1, t2, t3 = st.columns(3)
-        rev_target   = t1.number_input("💰 Revenue Target ($)", min_value=0, value=int(total_rev*1.1), step=10000, key="rev_target")
-        delay_target = t2.number_input("⚠️ Max Delays", min_value=1, value=max(1, delayed_count), key="delay_target")
-        stock_target = t3.number_input("📉 Max Low Stock", min_value=1, value=max(1, low_stock), key="stock_target")
-        p1, p2, p3 = st.columns(3)
-        rev_pct   = min(100, int(total_rev / rev_target * 100)) if rev_target else 0
-        delay_pct = max(0, int((1 - delayed_count / delay_target) * 100)) if delay_target else 100
-        stock_pct = max(0, int((1 - low_stock / stock_target) * 100)) if stock_target else 100
-        p1.markdown("**💰 Revenue Progress**")
-        p1.progress(rev_pct / 100, text=f"{rev_pct}% of ${rev_target:,.0f}")
-        p2.markdown("**⚠️ Delay Score**")
-        p2.progress(delay_pct / 100, text=f"{delay_pct}% on-time")
-        p3.markdown("**📉 Stock Health**")
-        p3.progress(stock_pct / 100, text=f"{stock_pct}% healthy")
-
-    # ── Comparison Mode ───────────────────────────────────────────────
-    if st.session_state.get("compare_mode", False):
-        st.markdown("### 📊 Side-by-Side Comparison")
-        cmp1, cmp2 = st.columns(2)
-        with cmp1:
-            st.markdown("**📅 Period A**")
-            range_a = st.date_input("Period A range", value=(min_d, max_d), key="range_a")
-        with cmp2:
-            st.markdown("**📅 Period B**")
-            mid_d2 = min_d + (max_d - min_d) // 2
-            range_b = st.date_input("Period B range", value=(min_d, mid_d2), key="range_b")
-        orig = sales_df.copy()
-        df_a = orig[(orig["sale_date"].dt.date >= range_a[0]) & (orig["sale_date"].dt.date <= range_a[1])] if len(range_a)==2 else orig
-        df_b = orig[(orig["sale_date"].dt.date >= range_b[0]) & (orig["sale_date"].dt.date <= range_b[1])] if len(range_b)==2 else orig
-        ca, cb = st.columns(2)
-        with ca:
-            rev_a = df_a["revenue"].sum()
-            st.metric("Period A Revenue", f"${rev_a:,.0f}")
-            df_a2 = df_a.copy(); df_a2["month"] = df_a2["sale_date"].dt.strftime("%Y-%m")
-            fig_ca = px.bar(df_a2.groupby("month")["revenue"].sum().reset_index(), x="month", y="revenue",
-                            template="plotly_dark", color_discrete_sequence=["#6366f1"])
-            fig_ca.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,14,23,0.6)",
-                                 font=dict(family="Inter",color="#e2e8f0"), margin=dict(l=10,r=10,t=30,b=10), showlegend=False)
-            st.plotly_chart(fig_ca, use_container_width=True)
-        with cb:
-            rev_b = df_b["revenue"].sum()
-            st.metric("Period B Revenue", f"${rev_b:,.0f}", delta=f"${rev_a-rev_b:,.0f} vs A")
-            df_b2 = df_b.copy(); df_b2["month"] = df_b2["sale_date"].dt.strftime("%Y-%m")
-            fig_cb = px.bar(df_b2.groupby("month")["revenue"].sum().reset_index(), x="month", y="revenue",
-                            template="plotly_dark", color_discrete_sequence=["#06b6d4"])
-            fig_cb.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,14,23,0.6)",
-                                 font=dict(family="Inter",color="#e2e8f0"), margin=dict(l=10,r=10,t=30,b=10), showlegend=False)
-            st.plotly_chart(fig_cb, use_container_width=True)
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # ── Export Button ─────────────────────────────────────────────────
     export_bytes = to_excel_bytes({
@@ -1214,18 +1149,55 @@ def main_dashboard():
                                 st.success(f"✅ {report_type} sent to {target_email}")
                             log_activity(st.session_state.get("username", "?"), f"Sent {report_type} to {target_email}")
 
-            with st.expander("👥 User Management", expanded=False):
-                if st.session_state.get("username","") == "lunalupa":
-                    st.markdown("#### 👥 User Management")
-                    try:
-                        conn_um = mysql.connector.connect(**DB_CONFIG)
-                        um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
-                        conn_um.close()
-                    except Exception as e:
-                        um_df = pd.DataFrame()
-                        st.error(f"Could not load users: {e}")
-                    if not um_df.empty:
-                        st.dataframe(um_df, use_container_width=True, hide_index=True)
+
+                st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+                st.markdown("#### 👥 User Management")
+                try:
+                    conn_um = mysql.connector.connect(**DB_CONFIG)
+                    um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
+                    conn_um.close()
+                except Exception as e:
+                    um_df = pd.DataFrame()
+                    st.error(f"Could not load users: {e}")
+                if not um_df.empty:
+                    st.dataframe(um_df, use_container_width=True, hide_index=True)
+                    st.markdown("---")
+                    col_um1, col_um2 = st.columns(2)
+                    with col_um1:
+                        st.markdown("**🗑️ Delete User**")
+                        del_options = [u for u in um_df["username"].tolist() if u != "lunalupa"]
+                        if del_options:
+                            del_user = st.selectbox("Select user to delete", del_options, key="del_user_select")
+                            if st.button("🗑️ Delete", key="del_user_btn"):
+                                try:
+                                    conn_d = mysql.connector.connect(**DB_CONFIG)
+                                    cursor_d = conn_d.cursor()
+                                    cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
+                                    conn_d.commit(); cursor_d.close(); conn_d.close()
+                                    log_activity("lunalupa", f"Deleted user: {del_user}")
+                                    st.success(f"✅ Deleted {del_user}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                        else:
+                            st.info("No other users to delete.")
+                    with col_um2:
+                        st.markdown("**🔑 Reset Password**")
+                        reset_user = st.selectbox("Select user", um_df["username"].tolist(), key="reset_user_select")
+                        new_pw = st.text_input("New Password", type="password", key="reset_pw")
+                        if st.button("🔑 Reset Password", key="reset_pw_btn"):
+                            if new_pw:
+                                try:
+                                    conn_r = mysql.connector.connect(**DB_CONFIG)
+                                    cursor_r = conn_r.cursor()
+                                    cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
+                                    conn_r.commit(); cursor_r.close(); conn_r.close()
+                                    log_activity("lunalupa", f"Reset password for: {reset_user}")
+                                    st.success(f"✅ Password reset for {reset_user}")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                            else:
+                                st.warning("Enter a new password first.")
 
         st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
@@ -1397,47 +1369,6 @@ def main_dashboard():
                     st.download_button("📥 Reorder Plan CSV",
                         data=rdf.to_csv(index=False).encode(),
                         file_name=f"reorder_{datetime.date.today()}.csv", mime="text/csv")
-
-
-                    st.markdown("---")
-                    col_um1, col_um2 = st.columns(2)
-                    with col_um1:
-                        st.markdown("**🗑️ Delete User**")
-                        del_options = [u for u in um_df["username"].tolist() if u != "lunalupa"]
-                        if del_options:
-                            del_user = st.selectbox("Select user to delete", del_options, key="del_user_select")
-                            if st.button("🗑️ Delete", key="del_user_btn"):
-                                try:
-                                    conn_d = mysql.connector.connect(**DB_CONFIG)
-                                    cursor_d = conn_d.cursor()
-                                    cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
-                                    conn_d.commit(); cursor_d.close(); conn_d.close()
-                                    log_activity("lunalupa", f"Deleted user: {del_user}")
-                                    st.success(f"✅ Deleted {del_user}")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error: {e}")
-                        else:
-                            st.info("No other users to delete.")
-                    with col_um2:
-                        st.markdown("**🔑 Reset Password**")
-                        reset_user = st.selectbox("Select user", um_df["username"].tolist(), key="reset_user_select")
-                        new_pw = st.text_input("New Password", type="password", key="reset_pw")
-                        if st.button("🔑 Reset Password", key="reset_pw_btn"):
-                            if new_pw:
-                                try:
-                                    conn_r = mysql.connector.connect(**DB_CONFIG)
-                                    cursor_r = conn_r.cursor()
-                                    cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
-                                    conn_r.commit(); cursor_r.close(); conn_r.close()
-                                    log_activity("lunalupa", f"Reset password for: {reset_user}")
-                                    st.success(f"✅ Password reset for {reset_user}")
-                                except Exception as e:
-                                    st.error(f"Error: {e}")
-                            else:
-                                st.warning("Enter a new password first.")
-                else:
-                    st.markdown('<div style="text-align:center;padding:1.5rem;"><div style="font-size:2rem;">🔒</div><p style="color:#64748b;">User management is admin-only.</p></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
