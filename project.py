@@ -1006,6 +1006,7 @@ def main_dashboard():
             st.session_state.notif_unlocked = False
 
         _is_admin_check = st.session_state.get("username", "") == "lunalupa"
+        st.sidebar.caption(f"🔍 user: {st.session_state.get(chr(117)+chr(115)+chr(101)+chr(114)+chr(110)+chr(97)+chr(109)+chr(101),chr(63))}")  # debug
         if _is_admin_check and not st.session_state.notif_unlocked:
             st.markdown("#### 🔒 Admin Access")
             notif_pass = st.text_input("Admin password", type="password", key="notif_pass_input")
