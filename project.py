@@ -1436,8 +1436,8 @@ def main_dashboard():
                                     st.error(f"Error: {e}")
                             else:
                                 st.warning("Enter a new password first.")
-            else:
-                st.markdown('<div style="text-align:center;padding:1.5rem;"><div style="font-size:2rem;">🔒</div><p style="color:#64748b;">User management is admin-only.</p></div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="text-align:center;padding:1.5rem;"><div style="font-size:2rem;">🔒</div><p style="color:#64748b;">User management is admin-only.</p></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
