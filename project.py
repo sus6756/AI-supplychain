@@ -24,6 +24,12 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "notif_unlocked" not in st.session_state:
+    st.session_state.notif_unlocked = False
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
 # ====================================================================
 # 2. GLOBAL CSS ANIMATIONS & STYLING
@@ -571,6 +577,7 @@ def auth_page():
                         time.sleep(0.6)
                         st.session_state.logged_in = True
                         st.session_state.username = username
+                        st.session_state.notif_unlocked = False
                         log_activity(username, "Login")
                         st.rerun()
                     else:
@@ -614,8 +621,8 @@ def main_dashboard():
     st.sidebar.markdown("""
     <div style="text-align:center;padding:1rem 0 0.5rem 0;">
         <div style="font-size:2.5rem;">🚛</div>
-        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1rem;">Supply Chain AI</h3>
-        <p style="color:#475569;font-size:0.75rem;margin:0;">Enterprise Dashboard</p>
+        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
+        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Dashboard</p>
     </div>
     <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
     """, unsafe_allow_html=True)
