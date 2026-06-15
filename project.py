@@ -1390,46 +1390,46 @@ def main_dashboard():
 
         # Message Admin inside Hub
         with st.expander("💬 Message Admin", expanded=False):
-        st.markdown("### 💬 Message Admin")
-        curr_user = st.session_state.get("username", "")
-        st.markdown("<p style='color:#94a3b8;margin-bottom:1rem;'>Send a direct message to the admin. You will receive a reply to your saved email.</p>", unsafe_allow_html=True)
-        with st.form("msg_form"):
-            msg_text = st.text_area("Your Message", placeholder="Describe your issue, query or feedback...", height=130)
-            if st.form_submit_button("📤 Send Message", use_container_width=True):
-                if msg_text.strip():
-                    try:
-                        conn_m = mysql.connector.connect(**DB_CONFIG)
-                        cursor_m = conn_m.cursor()
-                        cursor_m.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, msg_text.strip()))
-                        conn_m.commit(); cursor_m.close(); conn_m.close()
-                        notify_body = f"<p style='color:#94a3b8;'>New message from <strong style='color:#a5b4fc;'>{curr_user}</strong>:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'>{msg_text}</p>"
-                        send_email("sashankmidhun@gmail.com", f"New Message from {curr_user} — Traqify", email_template("New Message", notify_body))
-                        log_activity(curr_user, "Sent message to admin")
-                        st.success("Message sent! The admin will reply to your email.")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-                else:
-                    st.warning("Write a message first.")
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-        st.markdown("#### 📬 Your Conversation History")
-        try:
-            conn_mh = mysql.connector.connect(**DB_CONFIG)
-            mh_df = pd.read_sql("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at DESC", conn_mh, params=(curr_user,))
-            conn_mh.close()
-        except Exception:
-            mh_df = pd.DataFrame()
-        if mh_df.empty:
-            st.info("No messages yet.")
-        else:
-            for _, row in mh_df.iterrows():
-                is_resolved = row["status"] == "resolved"
-                st.markdown(f"**{str(row['created_at'])[:16]}** &nbsp; {'✅ Resolved' if is_resolved else '⏳ Pending reply'}", unsafe_allow_html=True)
-                st.markdown(f"📤 **You:** {row['message']}")
-                if row["reply"]:
-                    st.success(f"📥 Admin: {row['reply']}")
-                else:
-                    st.caption("Waiting for admin reply...")
-                st.markdown("---")
+            st.markdown("### 💬 Message Admin")
+            curr_user = st.session_state.get("username", "")
+            st.markdown("<p style='color:#94a3b8;margin-bottom:1rem;'>Send a direct message to the admin. You will receive a reply to your saved email.</p>", unsafe_allow_html=True)
+            with st.form("msg_form"):
+                msg_text = st.text_area("Your Message", placeholder="Describe your issue, query or feedback...", height=130)
+                if st.form_submit_button("📤 Send Message", use_container_width=True):
+                    if msg_text.strip():
+                        try:
+                            conn_m = mysql.connector.connect(**DB_CONFIG)
+                            cursor_m = conn_m.cursor()
+                            cursor_m.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, msg_text.strip()))
+                            conn_m.commit(); cursor_m.close(); conn_m.close()
+                            notify_body = f"<p style='color:#94a3b8;'>New message from <strong style='color:#a5b4fc;'>{curr_user}</strong>:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'>{msg_text}</p>"
+                            send_email("sashankmidhun@gmail.com", f"New Message from {curr_user} — Traqify", email_template("New Message", notify_body))
+                            log_activity(curr_user, "Sent message to admin")
+                            st.success("Message sent! The admin will reply to your email.")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning("Write a message first.")
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+            st.markdown("#### 📬 Your Conversation History")
+            try:
+                conn_mh = mysql.connector.connect(**DB_CONFIG)
+                mh_df = pd.read_sql("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at DESC", conn_mh, params=(curr_user,))
+                conn_mh.close()
+            except Exception:
+                mh_df = pd.DataFrame()
+            if mh_df.empty:
+                st.info("No messages yet.")
+            else:
+                for _, row in mh_df.iterrows():
+                    is_resolved = row["status"] == "resolved"
+                    st.markdown(f"**{str(row['created_at'])[:16]}** &nbsp; {'✅ Resolved' if is_resolved else '⏳ Pending reply'}", unsafe_allow_html=True)
+                    st.markdown(f"📤 **You:** {row['message']}")
+                    if row["reply"]:
+                        st.success(f"📥 Admin: {row['reply']}")
+                    else:
+                        st.caption("Waiting for admin reply...")
+                    st.markdown("---")
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
