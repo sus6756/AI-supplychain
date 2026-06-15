@@ -376,8 +376,8 @@ def email_template(title: str, body_html: str) -> str:
 
 def send_email(to: str, subject: str, html: str) -> bool:
     try:
-        sender = st.secrets.get("EMAIL_USER", "")
-        app_pw = st.secrets.get("EMAIL_PASS", "")
+        sender = st.secrets.get("EMAIL_SENDER", "")
+        app_pw = st.secrets.get("EMAIL_APP_PASSWORD", "")
         if not sender or not app_pw:
             return False
         msg = MIMEMultipart("alternative")
@@ -1006,7 +1006,6 @@ def main_dashboard():
             st.session_state.notif_unlocked = False
 
         _is_admin_check = st.session_state.get("username", "") == "lunalupa"
-        st.sidebar.caption(f"🔍 user: {st.session_state.get(chr(117)+chr(115)+chr(101)+chr(114)+chr(110)+chr(97)+chr(109)+chr(101),chr(63))}")  # debug
         if _is_admin_check and not st.session_state.notif_unlocked:
             st.markdown("#### 🔒 Admin Access")
             notif_pass = st.text_input("Admin password", type="password", key="notif_pass_input")
@@ -1060,14 +1059,6 @@ def main_dashboard():
             if not is_admin:
                 st.markdown("#### 📩 Send Yourself a Report")
                 st.markdown("<p style='color:#64748b;font-size:0.85rem;margin-bottom:1rem;'>Send yourself a report or request all reports from the admin.</p>", unsafe_allow_html=True)
-                if st.button("📬 Request All Reports from Admin", use_container_width=False, key="req_all_reports"):
-                    req_user = st.session_state.get("username", "Unknown")
-                    body = f"<p style='color:#94a3b8;'>User <strong>{req_user}</strong> ({active_email}) has requested all reports.</p>"
-                    html = email_template("📊 Report Request", body)
-                    ok = send_email("traqify.alerts@gmail.com", f"📊 Report Request from {req_user}", html)
-                    if ok:
-                        st.success("✅ Request sent! The admin will send your reports shortly.")
-                    log_activity(req_user, "Requested all reports from admin")
                 st.markdown("---")
                 u_col1, u_col2, u_col3 = st.columns(3)
                 with u_col1:
