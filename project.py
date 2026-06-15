@@ -1463,9 +1463,12 @@ def admin_dashboard():
     # ── Quick Stats ──
     try:
         conn_s = mysql.connector.connect(**DB_CONFIG)
-        total_users = pd.read_sql("SELECT COUNT(*) as cnt FROM users", conn_s).iloc[0, 0]
-        total_logs  = pd.read_sql("SELECT COUNT(*) as cnt FROM activity_log", conn_s).iloc[0, 0]
-        conn_s.close()
+        cur_s = conn_s.cursor()
+        cur_s.execute("SELECT COUNT(*) FROM users")
+        total_users = cur_s.fetchone()[0]
+        cur_s.execute("SELECT COUNT(*) FROM activity_log")
+        total_logs = cur_s.fetchone()[0]
+        cur_s.close(); conn_s.close()
     except Exception:
         total_users = total_logs = "N/A"
 
