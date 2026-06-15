@@ -1462,6 +1462,20 @@ def main_dashboard():
                     st.rerun()
             with col_r1:
                 st.caption("Click Refresh to check for new replies")
+            # End Chat button
+            if st.button("❌ End Chat", key="user_end_chat"):
+                try:
+                    conn_end = mysql.connector.connect(**DB_CONFIG)
+                    cursor_end = conn_end.cursor()
+                    cursor_end.execute("INSERT INTO messages (sender, message, status) VALUES (%s, %s, 'ended')", (curr_user, "[User ended the chat]"))
+                    conn_end.commit(); cursor_end.close(); conn_end.close()
+                    log_activity(curr_user, "Ended chat with admin")
+                    notify_body2 = f"<p style='color:#94a3b8;'>User <strong>{curr_user}</strong> has ended the chat session.</p>"
+                    send_email("sashankmidhun@gmail.com", f"{curr_user} ended chat — Traqify", email_template("Chat Ended", notify_body2))
+                    st.success("Chat ended.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
@@ -1620,65 +1634,135 @@ def admin_dashboard():
 
     # ADMIN TAB 3: INBOX
     with a3:
-        st.markdown("### 📥 User Messages Inbox")
+        st.markdown("### 📥 User Conversations")
+
+        # Load unique senders
         try:
             conn_i = mysql.connector.connect(**DB_CONFIG)
-            inbox_df = pd.read_sql("SELECT id, sender, message, reply, status, created_at FROM messages ORDER BY created_at DESC", conn_i)
-            conn_i.close()
-        except Exception as e:
-            inbox_df = pd.DataFrame()
-            st.error(f"Error: {e}")
+            cursor_i = conn_i.cursor()
+            cursor_i.execute("SELECT DISTINCT sender FROM messages ORDER BY sender")
+            senders = [r[0] for r in cursor_i.fetchall()]
+            cursor_i.close(); conn_i.close()
+        except Exception:
+            senders = []
 
-        if inbox_df.empty:
+        if not senders:
             st.info("No messages yet.")
         else:
-            pending = inbox_df[inbox_df["status"] == "pending"]
-            st.metric("�� Pending Messages", len(pending))
-            st.markdown("---")
-            for _, row in inbox_df.iterrows():
-                is_pending = row["status"] == "pending"
-                with st.expander(f"{'🔴' if is_pending else '✅'} From: {row['sender']} — {str(row['created_at'])[:16]}", expanded=is_pending):
-                    st.markdown(f"**Message:** {row['message']}")
-                    if row["reply"]:
-                        st.success(f"Your reply: {row['reply']}")
+            pending_counts = {}
+            try:
+                conn_p = mysql.connector.connect(**DB_CONFIG)
+                cursor_p = conn_p.cursor()
+                cursor_p.execute("SELECT sender, COUNT(*) FROM messages WHERE status='pending' GROUP BY sender")
+                pending_counts = {r[0]: r[1] for r in cursor_p.fetchall()}
+                cursor_p.close(); conn_p.close()
+            except Exception:
+                pass
+
+            selected_sender = st.selectbox("👤 Select User", senders,
+                format_func=lambda s: f"{'🔴 ' if pending_counts.get(s,0)>0 else '✅ '}{s} ({pending_counts.get(s,0)} pending)",
+                key="admin_chat_user")
+
+            if selected_sender:
+                # Load conversation
+                try:
+                    conn_cv = mysql.connector.connect(**DB_CONFIG)
+                    cursor_cv = conn_cv.cursor()
+                    cursor_cv.execute("SELECT id, message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at ASC", (selected_sender,))
+                    convo = cursor_cv.fetchall()
+                    cursor_cv.close(); conn_cv.close()
+                except Exception:
+                    convo = []
+
+                # Chat bubble UI
+                chat_html = '<div class="chat-box">'
+                if not convo:
+                    chat_html += '<p style="color:#475569;text-align:center;padding-top:2rem;">No messages yet.</p>'
+                for row in convo:
+                    mid, msg, reply, status, created = row
+                    time_str = str(created)[:16]
+                    if status == "ended":
+                        chat_html += f'<div style="text-align:center;color:#475569;font-size:0.8rem;padding:8px;">— Chat ended —</div>'
+                        continue
+                    chat_html += f'<div style="text-align:right;"><div class="chat-bubble-user">{msg}</div><div class="chat-time" style="text-align:right;">{selected_sender} · {time_str}</div></div>'
+                    if reply:
+                        chat_html += f'<div><div class="chat-bubble-admin"><strong>You (Admin):</strong> {reply}</div></div>'
                     else:
-                        reply_text = st.text_area("Reply", key=f"reply_{row['id']}", placeholder="Type your reply...")
-                        col_r1, col_r2 = st.columns(2)
-                        with col_r1:
-                            if st.button("📤 Send Reply", key=f"send_reply_{row['id']}", use_container_width=True):
-                                if reply_text.strip():
-                                    try:
-                                        conn_reply = mysql.connector.connect(**DB_CONFIG)
-                                        cursor_reply = conn_reply.cursor()
-                                        cursor_reply.execute("UPDATE messages SET reply=%s, status='resolved', replied_at=NOW() WHERE id=%s", (reply_text.strip(), int(row["id"])))
-                                        conn_reply.commit(); cursor_reply.close(); conn_reply.close()
-                                        # Email the user
-                                        try:
-                                            conn_email = mysql.connector.connect(**DB_CONFIG)
-                                            user_email_row = pd.read_sql("SELECT email FROM users WHERE username=%s", conn_email, params=(row["sender"],))
-                                            conn_email.close()
-                                            if not user_email_row.empty and user_email_row.iloc[0,0]:
-                                                body = f"<p style='color:#94a3b8;'>Your message has been replied to:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'><strong>Your message:</strong> {row['message']}</p><p style='color:#e2e8f0;border-left:3px solid #22c55e;padding-left:1rem;'><strong>Admin reply:</strong> {reply_text}</p>"
-                                                send_email(user_email_row.iloc[0,0], "Admin replied to your message — Traqify", email_template("Reply from Admin", body))
-                                        except Exception:
-                                            pass
-                                        log_activity("lunalupa", f"Replied to {row['sender']}")
-                                        st.success("Reply sent!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error: {e}")
-                                else:
-                                    st.warning("Write a reply first.")
-                        with col_r2:
-                            if st.button("🗑️ Delete", key=f"del_msg_{row['id']}", use_container_width=True):
+                        chat_html += '<div><div style="color:#475569;font-size:0.78rem;padding:4px 8px;font-style:italic;">⏳ Awaiting your reply</div></div>'
+                chat_html += '</div>'
+                st.markdown(chat_html, unsafe_allow_html=True)
+
+                # Reply box
+                has_pending = any(r[3]=="pending" for r in convo)
+                if has_pending:
+                    col_ri, col_rs = st.columns([5,1])
+                    with col_ri:
+                        admin_reply = st.text_input("", placeholder="Type reply...", key="admin_reply_input", label_visibility="collapsed")
+                    with col_rs:
+                        if st.button("Reply", key="admin_reply_btn", use_container_width=True):
+                            if admin_reply.strip():
                                 try:
-                                    conn_del = mysql.connector.connect(**DB_CONFIG)
-                                    cursor_del = conn_del.cursor()
-                                    cursor_del.execute("DELETE FROM messages WHERE id=%s", (int(row["id"]),))
-                                    conn_del.commit(); cursor_del.close(); conn_del.close()
+                                    conn_rep = mysql.connector.connect(**DB_CONFIG)
+                                    cursor_rep = conn_rep.cursor()
+                                    cursor_rep.execute("UPDATE messages SET reply=%s, status='resolved', replied_at=NOW() WHERE sender=%s AND status='pending'", (admin_reply.strip(), selected_sender))
+                                    conn_rep.commit(); cursor_rep.close(); conn_rep.close()
+                                    # Email user
+                                    try:
+                                        conn_ue = mysql.connector.connect(**DB_CONFIG)
+                                        cur_ue = conn_ue.cursor()
+                                        cur_ue.execute("SELECT email FROM users WHERE username=%s", (selected_sender,))
+                                        ue = cur_ue.fetchone(); cur_ue.close(); conn_ue.close()
+                                        if ue and ue[0]:
+                                            body = f"<p style='color:#94a3b8;'>Admin replied to your message:</p><p style='color:#e2e8f0;border-left:3px solid #22c55e;padding-left:1rem;'>{admin_reply}</p>"
+                                            send_email(ue[0], "Admin replied — Traqify", email_template("Reply from Admin", body))
+                                    except Exception:
+                                        pass
+                                    log_activity("lunalupa", f"Replied to {selected_sender}")
+                                    st.success("Reply sent!")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Error: {e}")
+                            else:
+                                st.warning("Type a reply first.")
+
+                # End Chat + Refresh buttons
+                col_ec1, col_ec2, col_ec3 = st.columns(3)
+                with col_ec1:
+                    if st.button("🔄 Refresh", key="admin_chat_refresh", use_container_width=True):
+                        st.rerun()
+                with col_ec2:
+                    if st.button("🗑️ Delete Conversation", key="admin_del_convo", use_container_width=True):
+                        try:
+                            conn_dc = mysql.connector.connect(**DB_CONFIG)
+                            cursor_dc = conn_dc.cursor()
+                            cursor_dc.execute("DELETE FROM messages WHERE sender=%s", (selected_sender,))
+                            conn_dc.commit(); cursor_dc.close(); conn_dc.close()
+                            st.success(f"Deleted conversation with {selected_sender}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with col_ec3:
+                    if st.button("❌ End Chat", key="admin_end_chat", use_container_width=True):
+                        try:
+                            conn_ec = mysql.connector.connect(**DB_CONFIG)
+                            cursor_ec = conn_ec.cursor()
+                            cursor_ec.execute("UPDATE messages SET status='ended' WHERE sender=%s AND status='pending'", (selected_sender,))
+                            conn_ec.commit(); cursor_ec.close(); conn_ec.close()
+                            try:
+                                conn_ue2 = mysql.connector.connect(**DB_CONFIG)
+                                cur_ue2 = conn_ue2.cursor()
+                                cur_ue2.execute("SELECT email FROM users WHERE username=%s", (selected_sender,))
+                                ue2 = cur_ue2.fetchone(); cur_ue2.close(); conn_ue2.close()
+                                if ue2 and ue2[0]:
+                                    body = "<p style='color:#94a3b8;'>The admin has ended this chat session. Start a new message if you need further help.</p>"
+                                    send_email(ue2[0], "Chat ended — Traqify", email_template("Chat Ended", body))
+                            except Exception:
+                                pass
+                            log_activity("lunalupa", f"Ended chat with {selected_sender}")
+                            st.success("Chat ended.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
 
     # ── TAB 3: Inbox & Logs ──
     with a3:
