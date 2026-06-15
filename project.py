@@ -743,7 +743,7 @@ def main_dashboard():
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
@@ -751,7 +751,6 @@ def main_dashboard():
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Hub",
-        "💬 Message Admin",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -1389,8 +1388,8 @@ def main_dashboard():
                         file_name=f"reorder_{datetime.date.today()}.csv", mime="text/csv")
 
 
-    # TAB 8 - MESSAGE ADMIN
-    with tab8:
+        # Message Admin inside Hub
+        with st.expander("💬 Message Admin", expanded=False):
         st.markdown("### 💬 Message Admin")
         curr_user = st.session_state.get("username", "")
         st.markdown("<p style='color:#94a3b8;margin-bottom:1rem;'>Send a direct message to the admin. You will receive a reply to your saved email.</p>", unsafe_allow_html=True)
@@ -1484,7 +1483,7 @@ def admin_dashboard():
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # ── Tabs ──
-    a1, a2, a3, a4, a5 = st.tabs(["👥 Users", "📢 Broadcast", "📥 Inbox", "📋 Activity Log", "🗿 SQL Console"])
+    a1, a2, a3, a4 = st.tabs(["👥 Users", "📢 Broadcast", "📥 Inbox & Logs", "🗿 SQL Console"])
 
     # ── TAB 1: User Management ──
     with a1:
@@ -1646,8 +1645,8 @@ def admin_dashboard():
                                 except Exception as e:
                                     st.error(f"Error: {e}")
 
-    # ── TAB 4: Activity Log ──
-    with a4:
+    # ── TAB 3: Inbox & Logs ──
+    with a3:
         st.markdown("### 📋 User Activity Log")
         log_df = get_activity_log(500)
         if log_df.empty:
@@ -1661,8 +1660,8 @@ def admin_dashboard():
             st.download_button("📥 Export CSV", data=log_df.to_csv(index=False).encode(),
                                file_name=f"activity_{datetime.date.today()}.csv", mime="text/csv")
 
-    # ── TAB 5: SQL Console ──
-    with a5:
+    # ── TAB 4: SQL Console ──
+    with a4:
         st.markdown("### 🗿 MySQL Console")
         query = st.text_area("SQL Query", "SELECT * FROM users;", height=140, key="admin_sql_query")
         if st.button("▶ Run Query", key="admin_run_query"):
