@@ -274,6 +274,15 @@ def init_activity_log():
             username VARCHAR(255),
             action TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            sender VARCHAR(255),
+            message TEXT,
+            reply TEXT DEFAULT NULL,
+            status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            replied_at TIMESTAMP NULL
+        );""")
         cursor.execute("""CREATE TABLE IF NOT EXISTS email_schedules (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE,
@@ -734,7 +743,7 @@ def main_dashboard():
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
@@ -742,6 +751,7 @@ def main_dashboard():
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Hub",
+        "💬 Message Admin",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -1378,6 +1388,50 @@ def main_dashboard():
                         data=rdf.to_csv(index=False).encode(),
                         file_name=f"reorder_{datetime.date.today()}.csv", mime="text/csv")
 
+
+    # TAB 8 - MESSAGE ADMIN
+    with tab8:
+        st.markdown("### 💬 Message Admin")
+        curr_user = st.session_state.get("username", "")
+        st.markdown("<p style='color:#94a3b8;margin-bottom:1rem;'>Send a direct message to the admin. You will receive a reply to your saved email.</p>", unsafe_allow_html=True)
+        with st.form("msg_form"):
+            msg_text = st.text_area("Your Message", placeholder="Describe your issue, query or feedback...", height=130)
+            if st.form_submit_button("📤 Send Message", use_container_width=True):
+                if msg_text.strip():
+                    try:
+                        conn_m = mysql.connector.connect(**DB_CONFIG)
+                        cursor_m = conn_m.cursor()
+                        cursor_m.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, msg_text.strip()))
+                        conn_m.commit(); cursor_m.close(); conn_m.close()
+                        notify_body = f"<p style='color:#94a3b8;'>New message from <strong style='color:#a5b4fc;'>{curr_user}</strong>:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'>{msg_text}</p>"
+                        send_email("sashankmidhun@gmail.com", f"New Message from {curr_user} — Traqify", email_template("New Message", notify_body))
+                        log_activity(curr_user, "Sent message to admin")
+                        st.success("Message sent! The admin will reply to your email.")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                else:
+                    st.warning("Write a message first.")
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        st.markdown("#### 📬 Your Conversation History")
+        try:
+            conn_mh = mysql.connector.connect(**DB_CONFIG)
+            mh_df = pd.read_sql("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at DESC", conn_mh, params=(curr_user,))
+            conn_mh.close()
+        except Exception:
+            mh_df = pd.DataFrame()
+        if mh_df.empty:
+            st.info("No messages yet.")
+        else:
+            for _, row in mh_df.iterrows():
+                is_resolved = row["status"] == "resolved"
+                st.markdown(f"**{str(row['created_at'])[:16]}** &nbsp; {'✅ Resolved' if is_resolved else '⏳ Pending reply'}", unsafe_allow_html=True)
+                st.markdown(f"📤 **You:** {row['message']}")
+                if row["reply"]:
+                    st.success(f"📥 Admin: {row['reply']}")
+                else:
+                    st.caption("Waiting for admin reply...")
+                st.markdown("---")
+
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
@@ -1430,7 +1484,7 @@ def admin_dashboard():
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # ── Tabs ──
-    a1, a2, a3, a4 = st.tabs(["👥 Users", "📢 Broadcast", "📋 Activity Log", "🗿 SQL Console"])
+    a1, a2, a3, a4, a5 = st.tabs(["👥 Users", "📢 Broadcast", "📥 Inbox", "📋 Activity Log", "🗿 SQL Console"])
 
     # ── TAB 1: User Management ──
     with a1:
@@ -1529,8 +1583,71 @@ def admin_dashboard():
                 <p style="color:#94a3b8;">{broadcast_msg}</p>
             </div>""", unsafe_allow_html=True)
 
-    # ── TAB 3: Activity Log ──
+
+    # ADMIN TAB 3: INBOX
     with a3:
+        st.markdown("### 📥 User Messages Inbox")
+        try:
+            conn_i = mysql.connector.connect(**DB_CONFIG)
+            inbox_df = pd.read_sql("SELECT id, sender, message, reply, status, created_at FROM messages ORDER BY created_at DESC", conn_i)
+            conn_i.close()
+        except Exception as e:
+            inbox_df = pd.DataFrame()
+            st.error(f"Error: {e}")
+
+        if inbox_df.empty:
+            st.info("No messages yet.")
+        else:
+            pending = inbox_df[inbox_df["status"] == "pending"]
+            st.metric("�� Pending Messages", len(pending))
+            st.markdown("---")
+            for _, row in inbox_df.iterrows():
+                is_pending = row["status"] == "pending"
+                with st.expander(f"{'🔴' if is_pending else '✅'} From: {row['sender']} — {str(row['created_at'])[:16]}", expanded=is_pending):
+                    st.markdown(f"**Message:** {row['message']}")
+                    if row["reply"]:
+                        st.success(f"Your reply: {row['reply']}")
+                    else:
+                        reply_text = st.text_area("Reply", key=f"reply_{row['id']}", placeholder="Type your reply...")
+                        col_r1, col_r2 = st.columns(2)
+                        with col_r1:
+                            if st.button("📤 Send Reply", key=f"send_reply_{row['id']}", use_container_width=True):
+                                if reply_text.strip():
+                                    try:
+                                        conn_reply = mysql.connector.connect(**DB_CONFIG)
+                                        cursor_reply = conn_reply.cursor()
+                                        cursor_reply.execute("UPDATE messages SET reply=%s, status='resolved', replied_at=NOW() WHERE id=%s", (reply_text.strip(), int(row["id"])))
+                                        conn_reply.commit(); cursor_reply.close(); conn_reply.close()
+                                        # Email the user
+                                        try:
+                                            conn_email = mysql.connector.connect(**DB_CONFIG)
+                                            user_email_row = pd.read_sql("SELECT email FROM users WHERE username=%s", conn_email, params=(row["sender"],))
+                                            conn_email.close()
+                                            if not user_email_row.empty and user_email_row.iloc[0,0]:
+                                                body = f"<p style='color:#94a3b8;'>Your message has been replied to:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'><strong>Your message:</strong> {row['message']}</p><p style='color:#e2e8f0;border-left:3px solid #22c55e;padding-left:1rem;'><strong>Admin reply:</strong> {reply_text}</p>"
+                                                send_email(user_email_row.iloc[0,0], "Admin replied to your message — Traqify", email_template("Reply from Admin", body))
+                                        except Exception:
+                                            pass
+                                        log_activity("lunalupa", f"Replied to {row['sender']}")
+                                        st.success("Reply sent!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error: {e}")
+                                else:
+                                    st.warning("Write a reply first.")
+                        with col_r2:
+                            if st.button("🗑️ Delete", key=f"del_msg_{row['id']}", use_container_width=True):
+                                try:
+                                    conn_del = mysql.connector.connect(**DB_CONFIG)
+                                    cursor_del = conn_del.cursor()
+                                    cursor_del.execute("DELETE FROM messages WHERE id=%s", (int(row["id"]),))
+                                    conn_del.commit(); cursor_del.close(); conn_del.close()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+
+    # ── TAB 4: Activity Log ──
+    with a4:
         st.markdown("### 📋 User Activity Log")
         log_df = get_activity_log(500)
         if log_df.empty:
@@ -1544,8 +1661,8 @@ def admin_dashboard():
             st.download_button("📥 Export CSV", data=log_df.to_csv(index=False).encode(),
                                file_name=f"activity_{datetime.date.today()}.csv", mime="text/csv")
 
-    # ── TAB 4: SQL Console ──
-    with a4:
+    # ── TAB 5: SQL Console ──
+    with a5:
         st.markdown("### 🗿 MySQL Console")
         query = st.text_area("SQL Query", "SELECT * FROM users;", height=140, key="admin_sql_query")
         if st.button("▶ Run Query", key="admin_run_query"):
