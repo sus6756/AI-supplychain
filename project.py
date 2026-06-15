@@ -1385,10 +1385,192 @@ def main_dashboard():
     </div>""", unsafe_allow_html=True)
 
 
+
+# ====================================================================
+# 6b. ADMIN DASHBOARD
+# ====================================================================
+def admin_dashboard():
+    # ── Sidebar ──
+    st.sidebar.markdown("""
+    <div style="text-align:center;padding:1rem 0 0.5rem 0;">
+        <div style="font-size:3rem;filter:drop-shadow(0 0 8px rgba(99,102,241,0.6));">⚙️</div>
+        <h3 style="color:#a5b4fc;margin:0.4rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
+        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Admin Panel</p>
+    </div>
+    <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
+    """, unsafe_allow_html=True)
+
+    if st.sidebar.button("�� Logout", use_container_width=True):
+        log_activity("lunalupa", "Admin Logout")
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+
+    # ── Hero Banner ──
+    st.markdown("""
+    <div class="hero-banner">
+        <h2>⚙️ Traqify Admin Panel</h2>
+        <p>User management · Activity monitoring · Broadcast updates · SQL access</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # ── Quick Stats ──
+    try:
+        conn_s = mysql.connector.connect(**DB_CONFIG)
+        total_users = pd.read_sql("SELECT COUNT(*) as c FROM users", conn_s).iloc[0]["c"]
+        total_logs  = pd.read_sql("SELECT COUNT(*) as c FROM activity_log", conn_s).iloc[0]["c"]
+        conn_s.close()
+    except Exception:
+        total_users = total_logs = "N/A"
+
+    s1, s2 = st.columns(2)
+    s1.metric("👥 Total Users", total_users)
+    s2.metric("📋 Activity Events", total_logs)
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # ── Tabs ──
+    a1, a2, a3, a4 = st.tabs(["👥 Users", "📢 Broadcast", "📋 Activity Log", "🗿 SQL Console"])
+
+    # ── TAB 1: User Management ──
+    with a1:
+        st.markdown("### 👥 User Management")
+        try:
+            conn_u = mysql.connector.connect(**DB_CONFIG)
+            um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_u)
+            conn_u.close()
+        except Exception as e:
+            um_df = pd.DataFrame()
+            st.error(f"Error: {e}")
+
+        if not um_df.empty:
+            st.dataframe(um_df, use_container_width=True, hide_index=True)
+            st.markdown("---")
+            col_del, col_reset = st.columns(2)
+
+            with col_del:
+                st.markdown("#### 🗑️ Remove User")
+                del_options = [u for u in um_df["username"].tolist() if u != "lunalupa"]
+                if del_options:
+                    del_user = st.selectbox("Select user", del_options, key="admin_del_user")
+                    if st.button("🗑️ Delete User", key="admin_del_btn", use_container_width=True):
+                        try:
+                            conn_d = mysql.connector.connect(**DB_CONFIG)
+                            cursor_d = conn_d.cursor()
+                            cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
+                            conn_d.commit(); cursor_d.close(); conn_d.close()
+                            log_activity("lunalupa", f"Deleted user: {del_user}")
+                            st.success(f"✅ Deleted {del_user}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                else:
+                    st.info("No other users.")
+
+            with col_reset:
+                st.markdown("#### 🔑 Reset Password")
+                reset_user = st.selectbox("Select user", um_df["username"].tolist(), key="admin_reset_user")
+                new_pw = st.text_input("New Password", type="password", key="admin_new_pw")
+                if st.button("🔑 Reset", key="admin_reset_btn", use_container_width=True):
+                    if new_pw:
+                        try:
+                            conn_r = mysql.connector.connect(**DB_CONFIG)
+                            cursor_r = conn_r.cursor()
+                            cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
+                            conn_r.commit(); cursor_r.close(); conn_r.close()
+                            log_activity("lunalupa", f"Reset password: {reset_user}")
+                            st.success(f"✅ Password reset for {reset_user}")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning("Enter a new password.")
+
+    # ── TAB 2: Broadcast ──
+    with a2:
+        st.markdown("### 📢 Broadcast Update to All Users")
+        st.markdown("<p style='color:#94a3b8;'>Type an update message and send it to all users who have saved their email.</p>", unsafe_allow_html=True)
+
+        broadcast_subject = st.text_input("📌 Subject", placeholder="e.g. New feature released!", key="broadcast_subject")
+        broadcast_msg = st.text_area("✉️ Message", placeholder="Write your update here...", height=150, key="broadcast_msg")
+
+        if st.button("📤 Send to All Users", use_container_width=False, key="broadcast_send"):
+            if broadcast_msg and broadcast_subject:
+                try:
+                    conn_b = mysql.connector.connect(**DB_CONFIG)
+                    emails_df = pd.read_sql("SELECT email FROM users WHERE email IS NOT NULL AND email != ''", conn_b)
+                    conn_b.close()
+                except Exception:
+                    emails_df = pd.DataFrame()
+
+                if emails_df.empty:
+                    st.warning("No users have saved their email yet.")
+                else:
+                    body = f"""
+                    <p style="color:#94a3b8;font-size:1rem;">{broadcast_msg.replace(chr(10), "<br>")}</p>
+                    <hr style="border-color:#334155;margin:1.5rem 0;">
+                    <p style="color:#475569;font-size:0.8rem;">This is an official update from the Traqify admin team.</p>"""
+                    html = email_template(f"📢 {broadcast_subject}", body)
+                    sent = 0
+                    for email in emails_df["email"]:
+                        ok = send_email(email, f"📢 {broadcast_subject} — Traqify", html)
+                        if ok: sent += 1
+                    log_activity("lunalupa", f"Broadcast sent to {sent} users: {broadcast_subject}")
+                    st.success(f"✅ Sent to {sent} users!")
+            else:
+                st.warning("Fill in both subject and message.")
+
+        # Preview
+        if broadcast_msg:
+            st.markdown("#### 👁️ Preview")
+            st.markdown(f"""
+            <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.3);
+                border-radius:12px;padding:1.5rem;">
+                <h4 style="color:#a5b4fc;margin:0 0 0.8rem;">📢 {broadcast_subject or "Subject..."}</h4>
+                <p style="color:#94a3b8;">{broadcast_msg}</p>
+            </div>""", unsafe_allow_html=True)
+
+    # ── TAB 3: Activity Log ──
+    with a3:
+        st.markdown("### 📋 User Activity Log")
+        log_df = get_activity_log(500)
+        if log_df.empty:
+            st.info("No activity recorded yet.")
+        else:
+            log_search = st.text_input("🔍 Search", placeholder="username or action", key="admin_log_search")
+            if log_search:
+                mask = log_df.apply(lambda r: r.astype(str).str.contains(log_search, case=False).any(), axis=1)
+                log_df = log_df[mask]
+            st.dataframe(log_df, use_container_width=True, height=450, hide_index=True)
+            st.download_button("📥 Export CSV", data=log_df.to_csv(index=False).encode(),
+                               file_name=f"activity_{datetime.date.today()}.csv", mime="text/csv")
+
+    # ── TAB 4: SQL Console ──
+    with a4:
+        st.markdown("### 🗿 MySQL Console")
+        query = st.text_area("SQL Query", "SELECT * FROM users;", height=140, key="admin_sql_query")
+        if st.button("▶ Run Query", key="admin_run_query"):
+            with st.spinner("Executing..."):
+                try:
+                    conn_sql = mysql.connector.connect(**DB_CONFIG)
+                    df_sql = pd.read_sql(query, conn_sql)
+                    conn_sql.close()
+                    st.success(f"✅ Returned {len(df_sql)} rows")
+                    st.dataframe(df_sql, use_container_width=True)
+                    log_activity("lunalupa", f"SQL: {query[:80]}")
+                except Error as e:
+                    st.error(f"❌ {e}")
+
+    # ── Footer ──
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    st.markdown("""<div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
+        Traqify Admin Panel · Built with Streamlit & MySQL</div>""", unsafe_allow_html=True)
+
 # ====================================================================
 # 7. ROUTER
 # ====================================================================
 if not st.session_state.logged_in:
     auth_page()
+elif st.session_state.get("username","") == "lunalupa":
+    admin_dashboard()
 else:
     main_dashboard()
