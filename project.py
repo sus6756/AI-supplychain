@@ -1380,48 +1380,88 @@ def main_dashboard():
                         file_name=f"reorder_{datetime.date.today()}.csv", mime="text/csv")
 
 
-        # Message Admin inside Hub
-        with st.expander("💬 Message Admin", expanded=False):
-            st.markdown("### 💬 Message Admin")
+        # Message Admin inside Hub - Live Chat Style
+        with st.expander("💬 Chat with Admin", expanded=False):
             curr_user = st.session_state.get("username", "")
-            st.markdown("<p style='color:#94a3b8;margin-bottom:1rem;'>Send a direct message to the admin. You will receive a reply to your saved email.</p>", unsafe_allow_html=True)
-            with st.form("msg_form"):
-                msg_text = st.text_area("Your Message", placeholder="Describe your issue, query or feedback...", height=130)
-                if st.form_submit_button("📤 Send Message", use_container_width=True):
-                    if msg_text.strip():
+
+            # Auto-refresh every 10 seconds
+            if "chat_refresh" not in st.session_state:
+                st.session_state.chat_refresh = 0
+
+            st.markdown("""
+            <style>
+            .chat-bubble-user {
+                background: linear-gradient(135deg,#6366f1,#8b5cf6);
+                color:white; padding:10px 14px; border-radius:18px 18px 4px 18px;
+                margin:6px 0; max-width:80%; margin-left:auto; text-align:right;
+                font-size:0.9rem; word-wrap:break-word;
+            }
+            .chat-bubble-admin {
+                background: rgba(30,27,75,0.8); border:1px solid rgba(99,102,241,0.3);
+                color:#e2e8f0; padding:10px 14px; border-radius:18px 18px 18px 4px;
+                margin:6px 0; max-width:80%; font-size:0.9rem; word-wrap:break-word;
+            }
+            .chat-time { color:#475569; font-size:0.72rem; margin:2px 4px; }
+            .chat-box {
+                background:rgba(15,14,23,0.6); border:1px solid rgba(99,102,241,0.2);
+                border-radius:14px; padding:1rem; height:380px; overflow-y:auto;
+                margin-bottom:1rem;
+            }
+            </style>""", unsafe_allow_html=True)
+
+            # Load messages
+            try:
+                conn_chat = mysql.connector.connect(**DB_CONFIG)
+                cursor_chat = conn_chat.cursor()
+                cursor_chat.execute("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at ASC", (curr_user,))
+                chat_rows = cursor_chat.fetchall()
+                cursor_chat.close(); conn_chat.close()
+            except Exception:
+                chat_rows = []
+
+            # Render chat bubbles
+            chat_html = '<div class="chat-box" id="chatbox">'
+            if not chat_rows:
+                chat_html += '<p style="color:#475569;text-align:center;padding-top:2rem;">No messages yet. Start the conversation below.</p>'
+            for row in chat_rows:
+                msg, reply, status, created = row
+                time_str = str(created)[:16]
+                chat_html += f'<div style="text-align:right;"><div class="chat-bubble-user">{msg}</div><div class="chat-time" style="text-align:right;">{time_str}</div></div>'
+                if reply:
+                    chat_html += f'<div><div class="chat-bubble-admin"><strong>Admin:</strong> {reply}</div><div class="chat-time">Admin replied</div></div>'
+                else:
+                    chat_html += '<div><div style="color:#475569;font-size:0.78rem;padding:4px 8px;font-style:italic;">⏳ Waiting for reply...</div></div>'
+            chat_html += '</div><script>var cb=document.getElementById("chatbox");if(cb)cb.scrollTop=cb.scrollHeight;</script>'
+            st.markdown(chat_html, unsafe_allow_html=True)
+
+            # Send message
+            col_input, col_send = st.columns([5, 1])
+            with col_input:
+                new_msg = st.text_input("", placeholder="Type your message...", key="chat_input", label_visibility="collapsed")
+            with col_send:
+                if st.button("Send", key="chat_send", use_container_width=True):
+                    if new_msg.strip():
                         try:
-                            conn_m = mysql.connector.connect(**DB_CONFIG)
-                            cursor_m = conn_m.cursor()
-                            cursor_m.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, msg_text.strip()))
-                            conn_m.commit(); cursor_m.close(); conn_m.close()
-                            notify_body = f"<p style='color:#94a3b8;'>New message from <strong style='color:#a5b4fc;'>{curr_user}</strong>:</p><p style='color:#e2e8f0;border-left:3px solid #6366f1;padding-left:1rem;'>{msg_text}</p>"
+                            conn_send = mysql.connector.connect(**DB_CONFIG)
+                            cursor_send = conn_send.cursor()
+                            cursor_send.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, new_msg.strip()))
+                            conn_send.commit(); cursor_send.close(); conn_send.close()
+                            notify_body = f"<p style='color:#94a3b8;'>New message from <strong style='color:#a5b4fc;'>{curr_user}</strong>:</p><p style='color:#e2e8f0;'>{new_msg}</p>"
                             send_email("sashankmidhun@gmail.com", f"New Message from {curr_user} — Traqify", email_template("New Message", notify_body))
-                            log_activity(curr_user, "Sent message to admin")
-                            st.success("Message sent! The admin will reply to your email.")
+                            log_activity(curr_user, "Sent chat message")
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
                     else:
-                        st.warning("Write a message first.")
-            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown("#### 📬 Your Conversation History")
-            try:
-                conn_mh = mysql.connector.connect(**DB_CONFIG)
-                mh_df = pd.read_sql("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at DESC", conn_mh, params=(curr_user,))
-                conn_mh.close()
-            except Exception:
-                mh_df = pd.DataFrame()
-            if mh_df.empty:
-                st.info("No messages yet.")
-            else:
-                for _, row in mh_df.iterrows():
-                    is_resolved = row["status"] == "resolved"
-                    st.markdown(f"**{str(row['created_at'])[:16]}** &nbsp; {'✅ Resolved' if is_resolved else '⏳ Pending reply'}", unsafe_allow_html=True)
-                    st.markdown(f"📤 **You:** {row['message']}")
-                    if row["reply"]:
-                        st.success(f"📥 Admin: {row['reply']}")
-                    else:
-                        st.caption("Waiting for admin reply...")
-                    st.markdown("---")
+                        st.warning("Type something first.")
+
+            # Auto-refresh button
+            col_r1, col_r2 = st.columns([3,1])
+            with col_r2:
+                if st.button("🔄 Refresh", key="chat_refresh_btn", use_container_width=True):
+                    st.rerun()
+            with col_r1:
+                st.caption("Click Refresh to check for new replies")
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
