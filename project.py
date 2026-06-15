@@ -1660,12 +1660,19 @@ def admin_dashboard():
             with st.spinner("Executing..."):
                 try:
                     conn_sql = mysql.connector.connect(**DB_CONFIG)
-                    df_sql = pd.read_sql(query, conn_sql)
-                    conn_sql.close()
-                    st.success(f"✅ Returned {len(df_sql)} rows")
-                    st.dataframe(df_sql, use_container_width=True)
+                    cursor_sql = conn_sql.cursor()
+                    cursor_sql.execute(query)
+                    if cursor_sql.description:
+                        cols = [d[0] for d in cursor_sql.description]
+                        df_sql = pd.DataFrame(cursor_sql.fetchall(), columns=cols)
+                        st.success(f"✅ Returned {len(df_sql)} rows")
+                        st.dataframe(df_sql, use_container_width=True)
+                    else:
+                        conn_sql.commit()
+                        st.success(f"✅ Done. Rows affected: {cursor_sql.rowcount}")
+                    cursor_sql.close(); conn_sql.close()
                     log_activity("lunalupa", f"SQL: {query[:80]}")
-                except Error as e:
+                except Exception as e:
                     st.error(f"❌ {e}")
 
     # ── Footer ──
