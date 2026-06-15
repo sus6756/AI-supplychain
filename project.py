@@ -1006,14 +1006,6 @@ def main_dashboard():
                 <div style="font-size:2.5rem;">🔒</div>
                 <p style="color:#64748b;margin:0.5rem 0 0;">SQL Console is restricted to admin only.</p>
             </div>""", unsafe_allow_html=True)
-
-    # ── Footer ────────────────────────────────────────────────────────
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-    st.markdown("""
-    <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
-        Supply Chain AI Enterprise · Built with Streamlit & MySQL
-    </div>""", unsafe_allow_html=True)
-
     # ─────────────────────────────────────────────────────────────────
     # TAB 7 — HUB
     # ─────────────────────────────────────────────────────────────────
