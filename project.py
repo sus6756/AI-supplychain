@@ -975,20 +975,28 @@ def main_dashboard():
     # TAB 6 — SQL CONSOLE
     # ─────────────────────────────────────────────────────────────────
     with tab6:
-        st.markdown("### 🗿 MySQL Console")
-        st.markdown('<p style="color:#64748b;font-size:0.85rem;">Run raw SQL against your connected database.</p>',
-                    unsafe_allow_html=True)
-        query = st.text_area("SQL Query", "SELECT * FROM users;", height=120)
-        if st.button("▶ Run Query"):
-            with st.spinner("Executing..."):
-                try:
-                    conn = mysql.connector.connect(**DB_CONFIG)
-                    df   = pd.read_sql(query, conn)
-                    conn.close()
-                    st.success(f"✅ Returned {len(df)} rows")
-                    st.dataframe(df, use_container_width=True)
-                except Error as e:
-                    st.error(f"❌ Query Error: {e}")
+        if st.session_state.get("username","") == "lunalupa":
+            st.markdown("### 🗿 MySQL Console")
+            st.markdown('<p style="color:#64748b;font-size:0.85rem;">Run raw SQL against your connected database.</p>',
+                        unsafe_allow_html=True)
+            query = st.text_area("SQL Query", "SELECT * FROM users;", height=120)
+            if st.button("▶ Run Query"):
+                with st.spinner("Executing..."):
+                    try:
+                        conn = mysql.connector.connect(**DB_CONFIG)
+                        df   = pd.read_sql(query, conn)
+                        conn.close()
+                        st.success(f"✅ Returned {len(df)} rows")
+                        st.dataframe(df, use_container_width=True)
+                    except Error as e:
+                        st.error(f"❌ Query Error: {e}")
+        else:
+            st.markdown("""
+            <div style="background:rgba(99,102,241,0.05);border:1px dashed rgba(99,102,241,0.3);
+                border-radius:12px;padding:2rem;text-align:center;">
+                <div style="font-size:2.5rem;">🔒</div>
+                <p style="color:#64748b;margin:0.5rem 0 0;">SQL Console is restricted to admin only.</p>
+            </div>""", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
