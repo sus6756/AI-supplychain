@@ -219,7 +219,7 @@ DB_CONFIG = {
     "user":     st.secrets["DB_USER"],
     "password": st.secrets["DB_PASSWORD"],
     "database": st.secrets["DB_NAME"],
-    "port":     st.secrets["DB_PORT"],
+    "port":     int(st.secrets["DB_PORT"]),
     "ssl_disabled": False
 }
 
