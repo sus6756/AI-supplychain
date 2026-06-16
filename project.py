@@ -220,7 +220,7 @@ DB_CONFIG = {
     "password": st.secrets["DB_PASSWORD"],
     "database": st.secrets["DB_NAME"],
     "port":     int(st.secrets["DB_PORT"]),
-    "ssl_disabled": False
+    "ssl_ca":   "/etc/ssl/certs/ca-certificates.crt"
 }
 
 def init_db():
