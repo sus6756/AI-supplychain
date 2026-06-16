@@ -18,7 +18,7 @@ from mysql.connector import Error
 # ====================================================================
 # 1. PAGE & SESSION STATE INITIALIZATION
 # ====================================================================
-st.set_page_config(page_title="Supply Chain AI Enterprise", layout="wide", page_icon="🚛")
+st.set_page_config(page_title="Traqify", layout="wide", page_icon="📦")
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
