@@ -229,7 +229,13 @@ def init_db():
         cursor.execute("""CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL);""")
+            password VARCHAR(255) NOT NULL,
+            email VARCHAR(255) DEFAULT NULL);""")
+        # Add email column if it doesn't exist (for older DBs)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL;")
+        except Exception:
+            pass  # Column already exists
         conn.commit(); cursor.close(); conn.close()
     except Error as e:
         st.error(f"DB Init Error: {e}")
