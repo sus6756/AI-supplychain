@@ -829,77 +829,73 @@ def main_dashboard():
     # ── Calculator ────────────────────────────────────────────────────
     st.sidebar.markdown("---")
     with st.sidebar.expander("🧮 Calculator", expanded=False):
-        if "calc_display" not in st.session_state:
-            st.session_state.calc_display = "0"
-        if "calc_expr" not in st.session_state:
-            st.session_state.calc_expr = ""
 
-        st.markdown(
-            f"<div style='background:rgba(15,14,23,0.8);border:1px solid rgba(99,102,241,0.3);"
-            f"border-radius:10px;padding:0.6rem 1rem;font-size:1.4rem;font-weight:700;"
-            f"color:#e2e8f0;text-align:right;letter-spacing:1px;margin-bottom:0.5rem;"
-            f"min-height:2.2rem;word-break:break-all;'>{st.session_state.calc_display}</div>",
-            unsafe_allow_html=True,
-        )
-
-        btn_style = "font-size:1rem;font-weight:600;"
-        r1 = st.columns(4)
-        r2 = st.columns(4)
-        r3 = st.columns(4)
-        r4 = st.columns(4)
-        r5 = st.columns(4)
-
-        calc_buttons = [
-            ["C",  "±",  "%",  "÷"],
-            ["7",  "8",  "9",  "×"],
-            ["4",  "5",  "6",  "−"],
-            ["1",  "2",  "3",  "+"],
-            ["00", "0",  ".",  "="],
-        ]
-        rows = [r1, r2, r3, r4, r5]
-
-        def calc_press(val):
-            expr = st.session_state.calc_expr
-            disp = st.session_state.calc_display
-            if val == "C":
-                st.session_state.calc_expr = ""
+        @st.fragment
+        def calculator_widget():
+            if "calc_display" not in st.session_state:
                 st.session_state.calc_display = "0"
-            elif val == "=":
-                try:
-                    result = eval(expr.replace("÷", "/").replace("×", "*").replace("−", "-"))
-                    result = round(result, 10)
-                    # Remove trailing zeros after decimal
-                    st.session_state.calc_display = str(int(result)) if result == int(result) else str(result)
-                    st.session_state.calc_expr = st.session_state.calc_display
-                except Exception:
-                    st.session_state.calc_display = "Error"
-                    st.session_state.calc_expr = ""
-            elif val == "±":
-                try:
-                    cur = float(expr) if expr else 0
-                    st.session_state.calc_expr = str(-cur)
-                    st.session_state.calc_display = st.session_state.calc_expr
-                except Exception:
-                    pass
-            elif val == "%":
-                try:
-                    cur = float(expr) if expr else 0
-                    st.session_state.calc_expr = str(cur / 100)
-                    st.session_state.calc_display = st.session_state.calc_expr
-                except Exception:
-                    pass
-            else:
-                if st.session_state.calc_display in ("0", "Error") and val.isdigit():
-                    st.session_state.calc_expr = val
-                else:
-                    st.session_state.calc_expr = expr + val
-                st.session_state.calc_display = st.session_state.calc_expr
+            if "calc_expr" not in st.session_state:
+                st.session_state.calc_expr = ""
 
-        for row_btns, row_cols in zip(calc_buttons, rows):
-            for btn_label, col in zip(row_btns, row_cols):
-                with col:
-                    if st.button(btn_label, key=f"calc_{btn_label}", use_container_width=True):
-                        calc_press(btn_label)
+            st.markdown(
+                f"<div style='background:rgba(15,14,23,0.8);border:1px solid rgba(99,102,241,0.3);"
+                f"border-radius:10px;padding:0.6rem 1rem;font-size:1.4rem;font-weight:700;"
+                f"color:#e2e8f0;text-align:right;letter-spacing:1px;margin-bottom:0.5rem;"
+                f"min-height:2.2rem;word-break:break-all;'>{st.session_state.calc_display}</div>",
+                unsafe_allow_html=True,
+            )
+
+            calc_buttons = [
+                ["C",  "±",  "%",  "÷"],
+                ["7",  "8",  "9",  "×"],
+                ["4",  "5",  "6",  "−"],
+                ["1",  "2",  "3",  "+"],
+                ["00", "0",  ".",  "="],
+            ]
+
+            def calc_press(val):
+                expr = st.session_state.calc_expr
+                if val == "C":
+                    st.session_state.calc_expr = ""
+                    st.session_state.calc_display = "0"
+                elif val == "=":
+                    try:
+                        result = eval(expr.replace("÷", "/").replace("×", "*").replace("−", "-"))
+                        result = round(result, 10)
+                        st.session_state.calc_display = str(int(result)) if result == int(result) else str(result)
+                        st.session_state.calc_expr = st.session_state.calc_display
+                    except Exception:
+                        st.session_state.calc_display = "Error"
+                        st.session_state.calc_expr = ""
+                elif val == "±":
+                    try:
+                        cur = float(expr) if expr else 0
+                        st.session_state.calc_expr = str(-cur)
+                        st.session_state.calc_display = st.session_state.calc_expr
+                    except Exception:
+                        pass
+                elif val == "%":
+                    try:
+                        cur = float(expr) if expr else 0
+                        st.session_state.calc_expr = str(cur / 100)
+                        st.session_state.calc_display = st.session_state.calc_expr
+                    except Exception:
+                        pass
+                else:
+                    if st.session_state.calc_display in ("0", "Error") and val.isdigit():
+                        st.session_state.calc_expr = val
+                    else:
+                        st.session_state.calc_expr = expr + val
+                    st.session_state.calc_display = st.session_state.calc_expr
+
+            for row_btns in calc_buttons:
+                cols = st.columns(4)
+                for btn_label, col in zip(row_btns, cols):
+                    with col:
+                        if st.button(btn_label, key=f"calc_{btn_label}", use_container_width=True):
+                            calc_press(btn_label)
+
+        calculator_widget()
 
     # ── Notepad ───────────────────────────────────────────────────────
     with st.sidebar.expander("📝 Notepad", expanded=False):
