@@ -1726,7 +1726,7 @@ def main_dashboard():
                 try:
                     conn_end = mysql.connector.connect(**DB_CONFIG)
                     cursor_end = conn_end.cursor()
-                    cursor_end.execute("INSERT INTO messages (sender, message, status) VALUES (%s, %s, 'ended')", (curr_user, "[User ended the chat]"))
+                    cursor_end.execute("DELETE FROM messages WHERE sender=%s", (curr_user,))
                     conn_end.commit(); cursor_end.close(); conn_end.close()
                     log_activity(curr_user, "Ended chat with admin")
                     notify_body2 = f"<p style='color:#94a3b8;'>User <strong>{curr_user}</strong> has ended the chat session.</p>"
@@ -2109,7 +2109,7 @@ def admin_dashboard():
                         try:
                             conn_ec = mysql.connector.connect(**DB_CONFIG)
                             cursor_ec = conn_ec.cursor()
-                            cursor_ec.execute("UPDATE messages SET status='ended' WHERE sender=%s AND status='pending'", (selected_sender,))
+                            cursor_ec.execute("DELETE FROM messages WHERE sender=%s", (selected_sender,))
                             conn_ec.commit(); cursor_ec.close(); conn_ec.close()
                             try:
                                 conn_ue2 = mysql.connector.connect(**DB_CONFIG)
