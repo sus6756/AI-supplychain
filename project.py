@@ -829,73 +829,113 @@ def main_dashboard():
     # ── Calculator ────────────────────────────────────────────────────
     st.sidebar.markdown("---")
     with st.sidebar.expander("🧮 Calculator", expanded=False):
+        components.html("""
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { background: transparent; font-family: 'Inter', sans-serif; }
+            #display {
+                background: rgba(15,14,23,0.9);
+                border: 1px solid rgba(99,102,241,0.4);
+                border-radius: 10px;
+                color: #e2e8f0;
+                font-size: 1.5rem;
+                font-weight: 700;
+                text-align: right;
+                padding: 0.5rem 0.8rem;
+                margin-bottom: 8px;
+                min-height: 2.4rem;
+                word-break: break-all;
+                letter-spacing: 1px;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+            }
+            button {
+                background: linear-gradient(135deg, #1e1b4b, #312e81);
+                border: 1px solid rgba(99,102,241,0.25);
+                border-radius: 8px;
+                color: #e2e8f0;
+                font-size: 1rem;
+                font-weight: 600;
+                padding: 10px 0;
+                cursor: pointer;
+                transition: background 0.15s, transform 0.1s;
+            }
+            button:hover { background: linear-gradient(135deg,#4f46e5,#7c3aed); }
+            button:active { transform: scale(0.93); }
+            .btn-op  { color: #a5b4fc; }
+            .btn-eq  { background: linear-gradient(135deg,#6366f1,#8b5cf6) !important; color: #fff; }
+            .btn-clr { color: #f87171; }
+        </style>
+        <div id="display">0</div>
+        <div class="grid">
+            <button class="btn-clr" onclick="press('C')">C</button>
+            <button class="btn-op"  onclick="press('±')">±</button>
+            <button class="btn-op"  onclick="press('%')">%</button>
+            <button class="btn-op"  onclick="press('÷')">÷</button>
 
-        @st.fragment
-        def calculator_widget():
-            if "calc_display" not in st.session_state:
-                st.session_state.calc_display = "0"
-            if "calc_expr" not in st.session_state:
-                st.session_state.calc_expr = ""
+            <button onclick="press('7')">7</button>
+            <button onclick="press('8')">8</button>
+            <button onclick="press('9')">9</button>
+            <button class="btn-op" onclick="press('×')">×</button>
 
-            st.markdown(
-                f"<div style='background:rgba(15,14,23,0.8);border:1px solid rgba(99,102,241,0.3);"
-                f"border-radius:10px;padding:0.6rem 1rem;font-size:1.4rem;font-weight:700;"
-                f"color:#e2e8f0;text-align:right;letter-spacing:1px;margin-bottom:0.5rem;"
-                f"min-height:2.2rem;word-break:break-all;'>{st.session_state.calc_display}</div>",
-                unsafe_allow_html=True,
-            )
+            <button onclick="press('4')">4</button>
+            <button onclick="press('5')">5</button>
+            <button onclick="press('6')">6</button>
+            <button class="btn-op" onclick="press('−')">−</button>
 
-            calc_buttons = [
-                ["C",  "±",  "%",  "÷"],
-                ["7",  "8",  "9",  "×"],
-                ["4",  "5",  "6",  "−"],
-                ["1",  "2",  "3",  "+"],
-                ["00", "0",  ".",  "="],
-            ]
+            <button onclick="press('1')">1</button>
+            <button onclick="press('2')">2</button>
+            <button onclick="press('3')">3</button>
+            <button class="btn-op" onclick="press('+')">+</button>
 
-            def calc_press(val):
-                expr = st.session_state.calc_expr
-                if val == "C":
-                    st.session_state.calc_expr = ""
-                    st.session_state.calc_display = "0"
-                elif val == "=":
-                    try:
-                        result = eval(expr.replace("÷", "/").replace("×", "*").replace("−", "-"))
-                        result = round(result, 10)
-                        st.session_state.calc_display = str(int(result)) if result == int(result) else str(result)
-                        st.session_state.calc_expr = st.session_state.calc_display
-                    except Exception:
-                        st.session_state.calc_display = "Error"
-                        st.session_state.calc_expr = ""
-                elif val == "±":
-                    try:
-                        cur = float(expr) if expr else 0
-                        st.session_state.calc_expr = str(-cur)
-                        st.session_state.calc_display = st.session_state.calc_expr
-                    except Exception:
-                        pass
-                elif val == "%":
-                    try:
-                        cur = float(expr) if expr else 0
-                        st.session_state.calc_expr = str(cur / 100)
-                        st.session_state.calc_display = st.session_state.calc_expr
-                    except Exception:
-                        pass
-                else:
-                    if st.session_state.calc_display in ("0", "Error") and val.isdigit():
-                        st.session_state.calc_expr = val
-                    else:
-                        st.session_state.calc_expr = expr + val
-                    st.session_state.calc_display = st.session_state.calc_expr
-
-            for row_btns in calc_buttons:
-                cols = st.columns(4)
-                for btn_label, col in zip(row_btns, cols):
-                    with col:
-                        if st.button(btn_label, key=f"calc_{btn_label}", use_container_width=True):
-                            calc_press(btn_label)
-
-        calculator_widget()
+            <button onclick="press('00')">00</button>
+            <button onclick="press('0')">0</button>
+            <button onclick="press('.')">.</button>
+            <button class="btn-eq" onclick="press('=')">=</button>
+        </div>
+        <script>
+            var expr = "";
+            var display = document.getElementById("display");
+            function press(val) {
+                if (val === "C") {
+                    expr = "";
+                    display.innerText = "0";
+                } else if (val === "=") {
+                    try {
+                        var result = eval(expr.replace(/÷/g,"/").replace(/×/g,"*").replace(/−/g,"-"));
+                        result = Math.round(result * 1e10) / 1e10;
+                        display.innerText = Number.isInteger(result) ? result.toString() : result.toString();
+                        expr = display.innerText;
+                    } catch(e) {
+                        display.innerText = "Error";
+                        expr = "";
+                    }
+                } else if (val === "±") {
+                    try {
+                        var cur = parseFloat(expr) || 0;
+                        expr = (-cur).toString();
+                        display.innerText = expr;
+                    } catch(e) {}
+                } else if (val === "%") {
+                    try {
+                        var cur = parseFloat(expr) || 0;
+                        expr = (cur / 100).toString();
+                        display.innerText = expr;
+                    } catch(e) {}
+                } else {
+                    if (display.innerText === "0" && /[0-9]/.test(val)) {
+                        expr = val;
+                    } else {
+                        expr += val;
+                    }
+                    display.innerText = expr;
+                }
+            }
+        </script>
+        """, height=310)
 
     # ── Notepad ───────────────────────────────────────────────────────
     with st.sidebar.expander("📝 Notepad", expanded=False):
