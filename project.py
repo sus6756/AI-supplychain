@@ -243,6 +243,11 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL;")
         except Exception:
             pass  # Column already exists
+        # Add name column if it doesn't exist
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN name VARCHAR(255) DEFAULT NULL;")
+        except Exception:
+            pass  # Column already exists
         conn.commit(); cursor.close(); conn.close()
     except Error as e:
         st.error(f"DB Init Error: {e}")
@@ -301,6 +306,11 @@ def init_activity_log():
             username VARCHAR(255) UNIQUE,
             email VARCHAR(255),
             day_of_week VARCHAR(20));""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS notepads (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) UNIQUE NOT NULL,
+            content TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);""")
         conn.commit(); cursor.close(); conn.close()
     except Error:
         pass  # silently skip if DB unavailable at startup
@@ -816,8 +826,146 @@ def main_dashboard():
         help="Pre-formatted Excel template with sample data — fill in your own data and upload"
     )
 
+    # ── Calculator ────────────────────────────────────────────────────
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🧮 Calculator", expanded=False):
+        if "calc_display" not in st.session_state:
+            st.session_state.calc_display = "0"
+        if "calc_expr" not in st.session_state:
+            st.session_state.calc_expr = ""
+
+        st.markdown(
+            f"<div style='background:rgba(15,14,23,0.8);border:1px solid rgba(99,102,241,0.3);"
+            f"border-radius:10px;padding:0.6rem 1rem;font-size:1.4rem;font-weight:700;"
+            f"color:#e2e8f0;text-align:right;letter-spacing:1px;margin-bottom:0.5rem;"
+            f"min-height:2.2rem;word-break:break-all;'>{st.session_state.calc_display}</div>",
+            unsafe_allow_html=True,
+        )
+
+        btn_style = "font-size:1rem;font-weight:600;"
+        r1 = st.columns(4)
+        r2 = st.columns(4)
+        r3 = st.columns(4)
+        r4 = st.columns(4)
+        r5 = st.columns(4)
+
+        calc_buttons = [
+            ["C",  "±",  "%",  "÷"],
+            ["7",  "8",  "9",  "×"],
+            ["4",  "5",  "6",  "−"],
+            ["1",  "2",  "3",  "+"],
+            ["00", "0",  ".",  "="],
+        ]
+        rows = [r1, r2, r3, r4, r5]
+
+        def calc_press(val):
+            expr = st.session_state.calc_expr
+            disp = st.session_state.calc_display
+            if val == "C":
+                st.session_state.calc_expr = ""
+                st.session_state.calc_display = "0"
+            elif val == "=":
+                try:
+                    result = eval(expr.replace("÷", "/").replace("×", "*").replace("−", "-"))
+                    result = round(result, 10)
+                    # Remove trailing zeros after decimal
+                    st.session_state.calc_display = str(int(result)) if result == int(result) else str(result)
+                    st.session_state.calc_expr = st.session_state.calc_display
+                except Exception:
+                    st.session_state.calc_display = "Error"
+                    st.session_state.calc_expr = ""
+            elif val == "±":
+                try:
+                    cur = float(expr) if expr else 0
+                    st.session_state.calc_expr = str(-cur)
+                    st.session_state.calc_display = st.session_state.calc_expr
+                except Exception:
+                    pass
+            elif val == "%":
+                try:
+                    cur = float(expr) if expr else 0
+                    st.session_state.calc_expr = str(cur / 100)
+                    st.session_state.calc_display = st.session_state.calc_expr
+                except Exception:
+                    pass
+            else:
+                if st.session_state.calc_display in ("0", "Error") and val.isdigit():
+                    st.session_state.calc_expr = val
+                else:
+                    st.session_state.calc_expr = expr + val
+                st.session_state.calc_display = st.session_state.calc_expr
+
+        for row_btns, row_cols in zip(calc_buttons, rows):
+            for btn_label, col in zip(row_btns, row_cols):
+                with col:
+                    if st.button(btn_label, key=f"calc_{btn_label}", use_container_width=True):
+                        calc_press(btn_label)
+                        st.rerun()
+
+    # ── Notepad ───────────────────────────────────────────────────────
+    with st.sidebar.expander("📝 Notepad", expanded=False):
+        _np_user = st.session_state.get("username", "")
+        # Load existing note from DB on first render
+        if "notepad_loaded" not in st.session_state:
+            try:
+                _conn_np = mysql.connector.connect(**DB_CONFIG)
+                _cur_np  = _conn_np.cursor()
+                _cur_np.execute("SELECT content FROM notepads WHERE username=%s", (_np_user,))
+                _row_np = _cur_np.fetchone()
+                _cur_np.close(); _conn_np.close()
+                st.session_state.notepad_content = _row_np[0] if _row_np else ""
+            except Exception:
+                st.session_state.notepad_content = ""
+            st.session_state.notepad_loaded = True
+
+        note_text = st.text_area(
+            "Your notes",
+            value=st.session_state.get("notepad_content", ""),
+            height=200,
+            placeholder="Jot something down...",
+            key="notepad_textarea",
+            label_visibility="collapsed",
+        )
+        col_np1, col_np2 = st.columns(2)
+        with col_np1:
+            if st.button("💾 Save", key="notepad_save", use_container_width=True):
+                try:
+                    _conn_s = mysql.connector.connect(**DB_CONFIG)
+                    _cur_s  = _conn_s.cursor()
+                    _cur_s.execute(
+                        "INSERT INTO notepads (username, content) VALUES (%s, %s) "
+                        "ON DUPLICATE KEY UPDATE content=%s, updated_at=CURRENT_TIMESTAMP",
+                        (_np_user, note_text, note_text),
+                    )
+                    _conn_s.commit(); _cur_s.close(); _conn_s.close()
+                    st.session_state.notepad_content = note_text
+                    st.success("Saved!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        with col_np2:
+            if st.button("🗑️ Clear", key="notepad_clear", use_container_width=True):
+                st.session_state.notepad_content = ""
+                st.session_state.notepad_loaded = False
+                try:
+                    _conn_c = mysql.connector.connect(**DB_CONFIG)
+                    _cur_c  = _conn_c.cursor()
+                    _cur_c.execute("DELETE FROM notepads WHERE username=%s", (_np_user,))
+                    _conn_c.commit(); _cur_c.close(); _conn_c.close()
+                except Exception:
+                    pass
+                st.rerun()
+        if st.session_state.get("notepad_content"):
+            st.download_button(
+                "📥 Export .txt",
+                data=st.session_state.notepad_content.encode(),
+                file_name=f"notes_{_np_user}.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key="notepad_export",
+            )
+
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
@@ -825,6 +973,7 @@ def main_dashboard():
         "🌍 Supplier Map",
         "🗿 SQL Console",
         "📧 Hub",
+        "👤 Profile",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -1550,6 +1699,111 @@ def main_dashboard():
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 8 — PROFILE
+    # ─────────────────────────────────────────────────────────────────
+    with tab8:
+        _pu = st.session_state.get("username", "")
+
+        st.markdown("""
+        <div class="hero-banner" style="margin-bottom:1.5rem;">
+            <h2>👤 My Profile</h2>
+            <p>Manage your display name and email address</p>
+        </div>""", unsafe_allow_html=True)
+
+        # Load current profile from DB
+        try:
+            _conn_pr = mysql.connector.connect(**DB_CONFIG)
+            _cur_pr  = _conn_pr.cursor()
+            _cur_pr.execute("SELECT name, email FROM users WHERE username=%s", (_pu,))
+            _pr_row  = _cur_pr.fetchone()
+            _cur_pr.close(); _conn_pr.close()
+            _cur_name  = _pr_row[0] or "" if _pr_row else ""
+            _cur_email = _pr_row[1] or "" if _pr_row else ""
+        except Exception:
+            _cur_name = _cur_email = ""
+
+        _, pr_col, _ = st.columns([1, 2, 1])
+        with pr_col:
+            # Avatar circle
+            _initials = (_cur_name[:1] if _cur_name else _pu[:1]).upper()
+            st.markdown(f"""
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <div style="display:inline-flex;align-items:center;justify-content:center;
+                    width:80px;height:80px;border-radius:50%;
+                    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                    font-size:2rem;font-weight:700;color:white;
+                    box-shadow:0 8px 24px rgba(99,102,241,0.4);">
+                    {_initials}
+                </div>
+                <p style="color:#94a3b8;margin:0.6rem 0 0;font-size:0.85rem;">@{_pu}</p>
+            </div>""", unsafe_allow_html=True)
+
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+            # ── Name field ──
+            st.markdown("#### ✏️ Display Name")
+            new_name = st.text_input(
+                "Full name",
+                value=_cur_name,
+                placeholder="e.g. Jane Smith",
+                key="profile_name_input",
+                label_visibility="collapsed",
+            )
+
+            # ── Email field ──
+            st.markdown("#### 📬 Email Address")
+            new_email = st.text_input(
+                "Email",
+                value=_cur_email,
+                placeholder="you@example.com",
+                key="profile_email_input",
+                label_visibility="collapsed",
+            )
+
+            st.markdown("")
+            if st.button("💾 Save Profile", use_container_width=True, key="profile_save_btn"):
+                if not new_name.strip() and not new_email.strip():
+                    st.warning("Enter at least a name or email to save.")
+                else:
+                    try:
+                        _conn_sv = mysql.connector.connect(**DB_CONFIG)
+                        _cur_sv  = _conn_sv.cursor()
+                        _cur_sv.execute(
+                            "UPDATE users SET name=%s, email=%s WHERE username=%s",
+                            (new_name.strip() or None, new_email.strip() or None, _pu),
+                        )
+                        _conn_sv.commit(); _cur_sv.close(); _conn_sv.close()
+                        st.session_state.user_email = new_email.strip()
+                        log_activity(_pu, f"Updated profile: name='{new_name}', email='{new_email}'")
+                        st.success("✅ Profile saved!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Could not save: {e}")
+
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+            # ── Account info ──
+            st.markdown("#### 🔒 Account")
+            st.markdown(f"""
+            <div style="background:rgba(30,27,75,0.5);border:1px solid rgba(99,102,241,0.2);
+                border-radius:12px;padding:1rem 1.2rem;">
+                <div style="display:flex;justify-content:space-between;padding:0.35rem 0;
+                    border-bottom:1px solid rgba(99,102,241,0.1);">
+                    <span style="color:#64748b;font-size:0.85rem;">Username</span>
+                    <span style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">@{_pu}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:0.35rem 0;
+                    border-bottom:1px solid rgba(99,102,241,0.1);">
+                    <span style="color:#64748b;font-size:0.85rem;">Display Name</span>
+                    <span style="color:#e2e8f0;font-size:0.85rem;">{_cur_name or "—"}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:0.35rem 0;">
+                    <span style="color:#64748b;font-size:0.85rem;">Email</span>
+                    <span style="color:#a5b4fc;font-size:0.85rem;">{_cur_email or "—"}</span>
+                </div>
+            </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
