@@ -1525,7 +1525,7 @@ def admin_dashboard():
     try:
         conn_s = mysql.connector.connect(**DB_CONFIG)
         cur_s = conn_s.cursor()
-        cur_s.execute("SELECT COUNT(*) FROM users")
+        cur_s.execute("SELECT COUNT(*) FROM users WHERE username != 'lunalupa'")
         total_users = cur_s.fetchone()[0]
         cur_s.execute("SELECT COUNT(*) FROM activity_log")
         total_logs = cur_s.fetchone()[0]
