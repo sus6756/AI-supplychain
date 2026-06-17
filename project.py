@@ -1546,7 +1546,7 @@ def admin_dashboard():
         st.markdown("### 👥 User Management")
         try:
             conn_u = mysql.connector.connect(**DB_CONFIG)
-            um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_u)
+            um_df = pd.read_sql("SELECT id, username, email FROM users WHERE username != 'lunalupa' ORDER BY id", conn_u)
             conn_u.close()
         except Exception as e:
             um_df = pd.DataFrame()
