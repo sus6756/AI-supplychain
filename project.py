@@ -717,6 +717,16 @@ def main_dashboard():
         st.rerun()
 
     st.sidebar.markdown("---")
+    template_bytes = generate_upload_template()
+    st.sidebar.download_button(
+        label="📋 Download Upload Template",
+        data=template_bytes,
+        file_name="traqify_upload_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        help="Pre-formatted Excel template with sample data — fill in your own data and upload"
+    )
+    st.sidebar.markdown("---")
     option = st.sidebar.radio("📂 Upload Type", ["Excel", "CSV"])
 
     # ── Hero Banner ───────────────────────────────────────────────────
@@ -816,19 +826,8 @@ def main_dashboard():
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
-    st.sidebar.markdown("---")
-    template_bytes = generate_upload_template()
-    st.sidebar.download_button(
-        label="📋 Download Upload Template",
-        data=template_bytes,
-        file_name="traqify_upload_template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-        help="Pre-formatted Excel template with sample data — fill in your own data and upload"
-    )
 
     # ── Calculator ────────────────────────────────────────────────────
-    st.sidebar.markdown("---")
     with st.sidebar.expander("🧮 Calculator", expanded=False):
         stc.html("""
         <style>
