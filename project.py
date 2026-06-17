@@ -1469,10 +1469,12 @@ def main_dashboard():
                         st.warning("Type something first.")
 
             # Auto-refresh button
-            # Auto-refresh indicator
-            st.markdown("<p style='color:#22c55e;font-size:0.78rem;'>🟢 Live — auto-refreshes every 5 seconds</p>", unsafe_allow_html=True)
-            time.sleep(5)
-            st.rerun()
+            col_r1, col_r2 = st.columns([3,1])
+            with col_r2:
+                if st.button("🔄 Refresh", key="chat_refresh_btn", use_container_width=True):
+                    st.rerun()
+            with col_r1:
+                st.caption("Click Refresh to check for new replies")
             # End Chat button
             if st.button("❌ End Chat", key="user_end_chat"):
                 try:
@@ -1702,10 +1704,6 @@ def admin_dashboard():
                         chat_html += '<div><div style="color:#475569;font-size:0.78rem;padding:4px 8px;font-style:italic;">⏳ Awaiting your reply</div></div>'
                 chat_html += '</div>'
                 st.markdown(chat_html, unsafe_allow_html=True)
-
-                # Auto-refresh
-                time.sleep(5)
-                st.rerun()
 
                 # Reply box
                 has_pending = any(r[3]=="pending" for r in convo)
