@@ -492,6 +492,57 @@ def to_excel_bytes(dfs: dict) -> bytes:
             df.to_excel(writer, sheet_name=sheet, index=False)
     return buf.getvalue()
 
+def generate_upload_template() -> bytes:
+    """Generate a pre-formatted Excel template with sample data and column headers."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        # Products sheet
+        products_template = pd.DataFrame({
+            "product_id":        [1, 2, 3],
+            "product_name":      ["Widget A", "Widget B", "Widget C"],
+            "category":          ["Electronics", "Electronics", "Hardware"],
+            "stock_quantity":    [150, 45, 200],
+            "reorder_level":     [50, 60, 80],
+            "warehouse_location":["Warehouse A", "Warehouse B", "Warehouse A"],
+            "unit_price":        [29.99, 49.99, 15.99],
+        })
+        products_template.to_excel(writer, sheet_name="products", index=False)
+
+        # Sales sheet
+        sales_template = pd.DataFrame({
+            "sale_id":      [1, 2, 3],
+            "product_id":   [1, 2, 1],
+            "sale_date":    ["2025-01-15", "2025-01-20", "2025-02-03"],
+            "quantity_sold":[10, 5, 8],
+            "revenue":      [299.90, 249.95, 239.92],
+        })
+        sales_template.to_excel(writer, sheet_name="sales", index=False)
+
+        # Shipments sheet
+        shipments_template = pd.DataFrame({
+            "shipment_id":       [1, 2, 3],
+            "supplier_id":       [101, 102, 101],
+            "product_id":        [1, 2, 3],
+            "shipment_date":     ["2025-01-10", "2025-01-18", "2025-02-01"],
+            "expected_delivery": ["2025-01-17", "2025-01-25", "2025-02-08"],
+            "actual_delivery":   ["2025-01-17", "2025-01-28", "2025-02-10"],
+            "quantity":          [50, 30, 80],
+            "transport_cost":    [120.00, 85.50, 200.00],
+        })
+        shipments_template.to_excel(writer, sheet_name="shipments", index=False)
+
+        # Suppliers sheet (bonus)
+        suppliers_template = pd.DataFrame({
+            "supplier_id":      [101, 102],
+            "supplier_name":    ["Acme Corp", "GlobalTech"],
+            "country":          ["United States", "Germany"],
+            "reliability_score":[0.92, 0.85],
+        })
+        suppliers_template.to_excel(writer, sheet_name="suppliers", index=False)
+
+    return buf.getvalue()
+
+
 def shipment_badge(delay: float) -> str:
     if pd.isna(delay) or delay <= 0:
         return '<span class="badge-ontime">✅ On Time</span>'
@@ -753,6 +804,16 @@ def main_dashboard():
         file_name="supply_chain_export.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
+    )
+    st.sidebar.markdown("---")
+    template_bytes = generate_upload_template()
+    st.sidebar.download_button(
+        label="📋 Download Upload Template",
+        data=template_bytes,
+        file_name="traqify_upload_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        help="Pre-formatted Excel template with sample data — fill in your own data and upload"
     )
 
     # ── Tabs ──────────────────────────────────────────────────────────
