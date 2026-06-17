@@ -7,6 +7,7 @@ import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as stc
 import plotly.express as px
 import plotly.graph_objects as go
 from email.mime.text import MIMEText
@@ -829,7 +830,7 @@ def main_dashboard():
     # ── Calculator ────────────────────────────────────────────────────
     st.sidebar.markdown("---")
     with st.sidebar.expander("🧮 Calculator", expanded=False):
-        components.html("""
+        stc.html("""
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { background: transparent; font-family: 'Inter', sans-serif; }
