@@ -900,7 +900,6 @@ def main_dashboard():
                 with col:
                     if st.button(btn_label, key=f"calc_{btn_label}", use_container_width=True):
                         calc_press(btn_label)
-                        st.rerun()
 
     # ── Notepad ───────────────────────────────────────────────────────
     with st.sidebar.expander("📝 Notepad", expanded=False):
