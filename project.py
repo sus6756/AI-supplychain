@@ -73,21 +73,21 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 h1 {
     background: linear-gradient(135deg, #6366f1, #06b6d4, #8b5cf6);
     background-size: 200% 200%;
-    animation: fadeInDown 0.7s ease both, gradientShift 4s ease infinite;
+    animation: gradientShift 4s ease infinite;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     font-weight: 700 !important;
 }
-h2, h3 { animation: fadeInLeft 0.6s ease both; color: #e2e8f0 !important; }
-.main .block-container { animation: fadeInUp 0.5s ease both; padding-top: 2rem; }
+h2, h3 { color: #e2e8f0 !important; }
+.main .block-container { padding-top: 2rem; transition: opacity 0.15s ease; }
 
 [data-testid="metric-container"] {
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
     border: 1px solid rgba(99,102,241,0.3);
     border-radius: 16px;
     padding: 1.2rem 1.5rem;
-    animation: fadeInUp 0.6s ease both, pulse 3s infinite;
+    animation: pulse 3s infinite;
     transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 [data-testid="metric-container"]:hover {
@@ -208,6 +208,12 @@ h2, h3 { animation: fadeInLeft 0.6s ease both; color: #e2e8f0 !important; }
 .badge-ontime  { background:#14532d; color:#4ade80; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
 .badge-delayed { background:#450a0a; color:#f87171; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
 .badge-critical{ background:#431407; color:#fb923c; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
+.stSpinner > div {
+    border: 3px solid rgba(99,102,241,0.2) !important;
+    border-top-color: #6366f1 !important;
+    width: 36px !important; height: 36px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
