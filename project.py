@@ -628,10 +628,22 @@ def smart_reorder(products_df, sales_df, days_ahead=30):
 # ====================================================================
 def auth_page():
     st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <div style="text-align:center; animation:fadeInDown 0.8s ease both; padding:2rem 0 1rem 0;">
-        <div style="font-size:3.5rem;">🚛</div>
-        <h1 style="font-size:2.4rem; margin:0.3rem 0;">Supply Chain AI</h1>
-        <p style="color:#94a3b8; font-size:1rem; margin:0;">Enterprise Intelligence Platform</p>
+        <h1 style="
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 3.2rem;
+            margin: 0.3rem 0;
+            letter-spacing: 6px;
+            background: linear-gradient(135deg, #6366f1 0%, #06b6d4 50%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            filter: drop-shadow(0 0 18px rgba(99,102,241,0.5));
+        ">TRAQIFY</h1>
+        <p style="color:#94a3b8; font-size:1rem; margin:0.2rem 0 0 0; letter-spacing:3px; text-transform:uppercase; font-size:0.8rem;">Enterprise Intelligence Platform</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
