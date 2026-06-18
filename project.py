@@ -1999,6 +1999,9 @@ def admin_dashboard():
     with a3:
         st.markdown("### 📥 User Conversations")
 
+        if st.button("🔄 Refresh Inbox", key="admin_inbox_refresh"):
+            st.rerun()
+
         # Load unique senders
         try:
             conn_i = mysql.connector.connect(**DB_CONFIG)
@@ -2006,8 +2009,9 @@ def admin_dashboard():
             cursor_i.execute("SELECT DISTINCT sender FROM messages ORDER BY sender")
             senders = [r[0] for r in cursor_i.fetchall()]
             cursor_i.close(); conn_i.close()
-        except Exception:
+        except Exception as e:
             senders = []
+            st.error(f"Could not load messages: {e}")
 
         if not senders:
             st.info("No messages yet.")
