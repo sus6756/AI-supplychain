@@ -1627,7 +1627,8 @@ def main_dashboard():
                 color_continuous_scale=["#ef4444","#f59e0b","#22c55e"],
                 template="plotly_dark", title="Bottom 15 Stock Levels",
             )
-            fig_stock.update_layout(**CHART_LAYOUT, margin=dict(l=10,r=10,t=40,b=80))
+            fig_stock.update_layout(**CHART_LAYOUT)
+            fig_stock.update_layout(margin=dict(l=10,r=10,t=40,b=80))
             st.plotly_chart(fig_stock, use_container_width=True)
 
         with col_b:
@@ -2145,7 +2146,8 @@ def main_dashboard():
                                    labels={name_c:"Product","days_until_out":"Days Until Out","urgency":"Status"})
                     fig_r.add_hline(y=days_ahead, line_dash="dash", line_color="#6366f1",
                                     annotation_text=f"Horizon ({days_ahead}d)")
-                    fig_r.update_layout(**CHART_LAYOUT, showlegend=True, margin=dict(l=10,r=10,t=40,b=80))
+                    fig_r.update_layout(**CHART_LAYOUT, showlegend=True)
+                    fig_r.update_layout(margin=dict(l=10,r=10,t=40,b=80))
                     st.plotly_chart(fig_r, use_container_width=True)
                     uf = st.selectbox("Filter urgency",["All","Order Now","Soon","Watch","OK"],key="urg_filter")
                     show = rdf if uf=="All" else rdf[rdf["urgency"]==uf]
