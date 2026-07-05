@@ -37,184 +37,284 @@ if "user_email" not in st.session_state:
 # ====================================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@700;900&display=swap');
 
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
-@keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-30px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeInLeft {
-    from { opacity: 0; transform: translateX(-40px); }
-    to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
-    50%       { box-shadow: 0 0 20px 6px rgba(99,102,241,0.2); }
-}
-@keyframes shimmer {
-    0%   { background-position: -1000px 0; }
-    100% { background-position:  1000px 0; }
-}
-@keyframes gradientShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-@keyframes countUp {
-    from { opacity: 0; transform: scale(0.5); }
-    to   { opacity: 1; transform: scale(1); }
+:root {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --accent: #06b6d4;
+    --violet: #8b5cf6;
+    --bg-deep: #07060f;
+    --bg-card: rgba(20,18,40,0.85);
+    --bg-card2: rgba(30,27,75,0.7);
+    --border: rgba(99,102,241,0.25);
+    --border-hover: rgba(99,102,241,0.6);
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
 }
 
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-deep) !important;
+}
+
+/* ── Animations ── */
+@keyframes fadeInDown  { from { opacity:0; transform:translateY(-24px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeInUp    { from { opacity:0; transform:translateY(24px);  } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeInLeft  { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes fadeIn      { from { opacity:0; } to { opacity:1; } }
+@keyframes floatY      { 0%,100% { transform:translateY(0);   } 50% { transform:translateY(-8px); } }
+@keyframes gradientShift { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
+@keyframes shimmer     { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+@keyframes pulseGlow   { 0%,100% { box-shadow:0 0 0 0 rgba(99,102,241,0.0); } 50% { box-shadow:0 0 22px 4px rgba(99,102,241,0.18); } }
+@keyframes spin        { to { transform:rotate(360deg); } }
+@keyframes borderFlow  {
+    0%   { border-color: rgba(99,102,241,0.3); }
+    33%  { border-color: rgba(6,182,212,0.4); }
+    66%  { border-color: rgba(139,92,246,0.4); }
+    100% { border-color: rgba(99,102,241,0.3); }
+}
+@keyframes countUp { from { opacity:0; transform:scale(0.6) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* ── Page ── */
+.main .block-container { padding-top: 1.8rem; max-width: 1400px; }
+
+/* ── Typography ── */
 h1 {
-    background: linear-gradient(135deg, #6366f1, #06b6d4, #8b5cf6);
+    font-family: 'Orbitron', sans-serif !important;
+    background: linear-gradient(135deg, var(--primary), var(--accent), var(--violet));
     background-size: 200% 200%;
-    animation: gradientShift 4s ease infinite;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 700 !important;
+    animation: gradientShift 5s ease infinite;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; font-weight: 900 !important;
 }
-h2, h3 { color: #e2e8f0 !important; }
-.main .block-container { padding-top: 2rem; transition: opacity 0.15s ease; }
+h2, h3 { color: var(--text) !important; font-weight: 700 !important; }
+p, span, label { color: var(--text-muted); }
 
+/* ── Metric Cards (glassmorphism) ── */
 [data-testid="metric-container"] {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-    border: 1px solid rgba(99,102,241,0.3);
-    border-radius: 16px;
-    padding: 1.2rem 1.5rem;
-    animation: pulse 3s infinite;
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-[data-testid="metric-container"]:hover {
-    transform: translateY(-6px) scale(1.02);
-    box-shadow: 0 12px 32px rgba(99,102,241,0.35);
-    border-color: rgba(99,102,241,0.7);
-}
-[data-testid="metric-container"] > div:first-child {
-    color: #a5b4fc !important; font-size: 0.8rem !important;
-    text-transform: uppercase; letter-spacing: 1px;
-}
-[data-testid="stMetricValue"] {
-    color: #ffffff !important; font-weight: 700 !important;
-    font-size: 2rem !important;
-    animation: countUp 0.8s cubic-bezier(0.175,0.885,0.32,1.275) both;
-}
-
-.stButton > button {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: white !important; border: none; border-radius: 10px;
-    padding: 0.55rem 1.4rem; font-weight: 600;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--border) !important;
+    border-radius: 18px !important;
+    padding: 1.4rem 1.6rem !important;
+    animation: pulseGlow 4s ease infinite, borderFlow 6s ease infinite;
+    transition: transform 0.28s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.28s ease;
     position: relative; overflow: hidden;
 }
-.stButton > button::after {
-    content: ''; position: absolute;
-    top: -50%; left: -75%; width: 50%; height: 200%;
-    background: rgba(255,255,255,0.15); transform: skewX(-20deg);
-    transition: left 0.4s ease;
+[data-testid="metric-container"]::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, transparent 60%);
+    pointer-events: none;
 }
-.stButton > button:hover::after { left: 125%; }
+[data-testid="metric-container"]:hover {
+    transform: translateY(-7px) scale(1.03);
+    box-shadow: 0 16px 40px rgba(99,102,241,0.3), 0 0 0 1px rgba(99,102,241,0.5);
+}
+[data-testid="metric-container"] > div:first-child {
+    color: #a5b4fc !important; font-size: 0.75rem !important;
+    text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;
+}
+[data-testid="stMetricValue"] {
+    color: #fff !important; font-weight: 800 !important;
+    font-size: 2.1rem !important;
+    animation: countUp 0.7s cubic-bezier(.175,.885,.32,1.275) both;
+}
+[data-testid="stMetricDelta"] svg { display: none; }
+[data-testid="column"]:nth-child(1) [data-testid="metric-container"] { animation-delay: 0.05s; }
+[data-testid="column"]:nth-child(2) [data-testid="metric-container"] { animation-delay: 0.15s; }
+[data-testid="column"]:nth-child(3) [data-testid="metric-container"] { animation-delay: 0.25s; }
+[data-testid="column"]:nth-child(4) [data-testid="metric-container"] { animation-delay: 0.35s; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* ── Buttons ── */
+.stButton > button {
+    background: linear-gradient(135deg, var(--primary), var(--violet)) !important;
+    color: white !important; border: none !important; border-radius: 12px !important;
+    padding: 0.6rem 1.5rem !important; font-weight: 600 !important; font-size: 0.9rem !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    position: relative; overflow: hidden;
+}
+.stButton > button::before {
+    content: ''; position: absolute; top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    transform: skewX(-20deg); transition: left 0.5s ease;
+}
+.stButton > button:hover::before { left: 150%; }
 .stButton > button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(99,102,241,0.45);
+    transform: translateY(-3px) !important;
+    box-shadow: 0 10px 28px rgba(99,102,241,0.45) !important;
 }
-.stButton > button:active { transform: translateY(0px) scale(0.97); }
+.stButton > button:active { transform: scale(0.97) !important; }
 
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f0e17 0%, #1a1a2e 60%, #16213e 100%) !important;
-    border-right: 1px solid rgba(99,102,241,0.2);
-    animation: fadeInLeft 0.5s ease both;
-}
-[data-testid="stDataFrame"] {
-    border-radius: 12px; overflow: hidden;
-    border: 1px solid rgba(99,102,241,0.2);
-    animation: fadeInUp 0.7s ease both; transition: box-shadow 0.3s ease;
-}
-[data-testid="stDataFrame"]:hover { box-shadow: 0 8px 30px rgba(99,102,241,0.2); }
-[data-testid="stPlotlyChart"] {
-    border-radius: 16px; overflow: hidden;
-    border: 1px solid rgba(99,102,241,0.2);
-    animation: fadeInUp 0.8s ease both; transition: box-shadow 0.3s ease;
-}
-[data-testid="stPlotlyChart"]:hover { box-shadow: 0 10px 40px rgba(6,182,212,0.2); }
-
+/* ── Inputs ── */
 .stTextInput > div > div > input,
-.stTextArea > div > div > textarea {
-    background: rgba(30,27,75,0.6) !important;
-    border: 1px solid rgba(99,102,241,0.3) !important;
-    border-radius: 10px !important; color: #e2e8f0 !important;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div {
+    background: rgba(15,14,30,0.7) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important; color: var(--text) !important;
+    font-size: 0.9rem !important;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
-    border-color: #6366f1 !important;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.2) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.18) !important;
+    outline: none !important;
 }
 
-.auth-card {
-    background: linear-gradient(135deg, rgba(30,27,75,0.9), rgba(17,24,39,0.95));
-    border: 1px solid rgba(99,102,241,0.35); border-radius: 20px;
-    padding: 2.5rem 2rem; backdrop-filter: blur(10px);
-    animation: fadeInUp 0.7s cubic-bezier(0.175,0.885,0.32,1.275) both;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1);
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,
+        #0a0914 0%, #0f0e1f 30%, #111827 70%, #0c1220 100%) !important;
+    border-right: 1px solid var(--border) !important;
+    animation: fadeInLeft 0.5s ease both;
 }
-[data-testid="stAlert"] { border-radius: 12px !important; animation: fadeInDown 0.4s ease both; }
+[data-testid="stSidebar"] .stRadio label { color: var(--text-muted) !important; }
+[data-testid="stSidebar"] .stMarkdown p { color: var(--text-dim) !important; }
 
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 8px; background: rgba(30,27,75,0.4); border-radius: 12px; padding: 4px;
+    gap: 6px !important;
+    background: rgba(15,14,30,0.6) !important;
+    border-radius: 14px !important; padding: 5px !important;
+    border: 1px solid var(--border);
 }
 .stTabs [data-baseweb="tab"] {
-    border-radius: 9px; padding: 0.5rem 1.2rem; font-weight: 600;
-    color: #94a3b8 !important; transition: all 0.25s ease; background: transparent;
+    border-radius: 10px !important; padding: 0.45rem 1rem !important;
+    font-weight: 600 !important; font-size: 0.82rem !important;
+    color: var(--text-muted) !important;
+    transition: all 0.22s ease !important; background: transparent !important;
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-    color: white !important; box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+    background: linear-gradient(135deg, var(--primary), var(--violet)) !important;
+    color: white !important;
+    box-shadow: 0 4px 18px rgba(99,102,241,0.45) !important;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0f0e17; }
-::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
+/* ── DataFrames ── */
+[data-testid="stDataFrame"] {
+    border-radius: 14px !important; overflow: hidden;
+    border: 1px solid var(--border) !important;
+    animation: fadeInUp 0.6s ease both;
+    transition: box-shadow 0.3s;
+}
+[data-testid="stDataFrame"]:hover { box-shadow: 0 8px 32px rgba(99,102,241,0.18); }
 
+/* ── Charts ── */
+[data-testid="stPlotlyChart"] {
+    border-radius: 18px !important; overflow: hidden;
+    border: 1px solid var(--border) !important;
+    background: rgba(10,9,20,0.5) !important;
+    animation: fadeInUp 0.7s ease both;
+    transition: box-shadow 0.3s, transform 0.3s;
+}
+[data-testid="stPlotlyChart"]:hover {
+    box-shadow: 0 12px 40px rgba(6,182,212,0.18);
+    transform: translateY(-2px);
+}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.3s;
+}
+[data-testid="stExpander"]:hover { border-color: var(--border-hover) !important; }
+[data-testid="stExpander"] summary {
+    font-weight: 600 !important; color: var(--text) !important;
+}
+
+/* ── Alerts ── */
+[data-testid="stAlert"] {
+    border-radius: 12px !important;
+    animation: fadeInDown 0.4s ease both;
+    backdrop-filter: blur(8px);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #07060f; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--primary), var(--violet));
+    border-radius: 4px;
+}
+
+/* ── Auth card ── */
+.auth-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 24px; padding: 2.8rem 2.2rem;
+    animation: fadeInUp 0.7s cubic-bezier(.175,.885,.32,1.275) both;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+    position: relative; overflow: hidden;
+}
+.auth-card::before {
+    content: ''; position: absolute;
+    top: -60%; left: -60%; width: 120%; height: 120%;
+    background: radial-gradient(ellipse at center, rgba(99,102,241,0.06) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* ── Hero banner ── */
 .hero-banner {
-    background: linear-gradient(135deg, #1e1b4b, #312e81, #1e3a5f);
+    background: linear-gradient(135deg, #0f0e1f 0%, #1a1545 40%, #0e1e35 100%);
     background-size: 300% 300%;
-    animation: gradientShift 6s ease infinite;
-    border-radius: 20px; padding: 2rem 2.5rem; margin-bottom: 1.5rem;
-    border: 1px solid rgba(99,102,241,0.3);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    animation: gradientShift 8s ease infinite;
+    border-radius: 20px; padding: 1.8rem 2.4rem; margin-bottom: 1.4rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    position: relative; overflow: hidden;
 }
-.hero-banner h2 { margin: 0 !important; font-size: 1.6rem !important; color: #e2e8f0 !important; }
-.hero-banner p  { margin: 0.3rem 0 0 0; color: #94a3b8; font-size: 0.9rem; }
+.hero-banner::after {
+    content: ''; position: absolute;
+    top: 0; right: 0; width: 40%; height: 100%;
+    background: radial-gradient(ellipse at right, rgba(6,182,212,0.07) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero-banner h2 {
+    margin: 0 !important; font-size: 1.5rem !important;
+    color: var(--text) !important; font-weight: 700 !important;
+    letter-spacing: 0.3px;
+}
+.hero-banner p { margin: 0.3rem 0 0; color: var(--text-muted); font-size: 0.88rem; }
 
+/* ── Section divider ── */
 .section-divider {
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #6366f1, #06b6d4, transparent);
-    border-radius: 2px; margin: 1.5rem 0;
-    animation: shimmer 2.5s linear infinite; background-size: 1000px 2px;
+    height: 1px; margin: 1.6rem 0;
+    background: linear-gradient(90deg, transparent 0%, var(--primary) 30%, var(--accent) 70%, transparent 100%);
+    background-size: 1000px 1px;
+    animation: shimmer 3s linear infinite;
 }
 
-[data-testid="column"]:nth-child(1) [data-testid="metric-container"] { animation-delay: 0.1s; }
-[data-testid="column"]:nth-child(2) [data-testid="metric-container"] { animation-delay: 0.2s; }
-[data-testid="column"]:nth-child(3) [data-testid="metric-container"] { animation-delay: 0.3s; }
-[data-testid="column"]:nth-child(4) [data-testid="metric-container"] { animation-delay: 0.4s; }
+/* ── Badges ── */
+.badge-ontime   { background:rgba(34,197,94,0.15);  color:#4ade80; border:1px solid rgba(34,197,94,0.3);  padding:3px 12px; border-radius:20px; font-size:0.76rem; font-weight:600; }
+.badge-delayed  { background:rgba(239,68,68,0.15);  color:#f87171; border:1px solid rgba(239,68,68,0.3);  padding:3px 12px; border-radius:20px; font-size:0.76rem; font-weight:600; }
+.badge-critical { background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); padding:3px 12px; border-radius:20px; font-size:0.76rem; font-weight:600; }
 
-.badge-ontime  { background:#14532d; color:#4ade80; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
-.badge-delayed { background:#450a0a; color:#f87171; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
-.badge-critical{ background:#431407; color:#fb923c; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
+/* ── Spinner ── */
 .stSpinner > div {
-    border: 3px solid rgba(99,102,241,0.2) !important;
-    border-top-color: #6366f1 !important;
-    width: 36px !important; height: 36px !important;
+    border: 3px solid rgba(99,102,241,0.15) !important;
+    border-top-color: var(--primary) !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -627,52 +727,138 @@ def smart_reorder(products_df, sales_df, days_ahead=30):
 # 5. AUTH PAGE
 # ====================================================================
 def auth_page():
+    # Animated particle background + page-level CSS
     st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-    <div style="text-align:center; animation:fadeInDown 0.8s ease both; padding:2rem 0 1rem 0;">
-        <h1 style="
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            font-size: 3.2rem;
-            margin: 0.3rem 0;
-            letter-spacing: 6px;
-            background: linear-gradient(135deg, #6366f1 0%, #06b6d4 50%, #8b5cf6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-transform: uppercase;
-            filter: drop-shadow(0 0 18px rgba(99,102,241,0.5));
-        ">TRAQIFY</h1>
-        <p style="color:#94a3b8; font-size:1rem; margin:0.2rem 0 0 0; letter-spacing:3px; text-transform:uppercase; font-size:0.8rem;">Enterprise Intelligence Platform</p>
+    <style>
+    /* Hide default streamlit header on auth */
+    header[data-testid="stHeader"] { background: transparent !important; }
+    .main .block-container { padding-top: 0 !important; padding-bottom: 0 !important; }
+    /* Animated mesh background */
+    .auth-bg {
+        position: fixed; inset: 0; z-index: 0; overflow: hidden;
+        background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.12) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.10) 0%, transparent 50%),
+                    radial-gradient(ellipse at 60% 80%, rgba(139,92,246,0.10) 0%, transparent 50%),
+                    #07060f;
+    }
+    .auth-bg .orb {
+        position: absolute; border-radius: 50%;
+        filter: blur(60px); opacity: 0.5; animation: floatY 7s ease-in-out infinite;
+    }
+    .orb1 { width:320px; height:320px; background:rgba(99,102,241,0.25); top:-80px; left:-80px; animation-delay:0s; }
+    .orb2 { width:240px; height:240px; background:rgba(6,182,212,0.20); bottom:-60px; right:-60px; animation-delay:-3s; }
+    .orb3 { width:180px; height:180px; background:rgba(139,92,246,0.18); top:50%; left:50%; animation-delay:-5s; }
+    /* Left branding panel */
+    .auth-left {
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: flex-start;
+        padding: 3rem 2.5rem; height: 100%;
+        animation: fadeInLeft 0.8s ease both;
+    }
+    .auth-logo {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900; font-size: 3rem; letter-spacing: 6px;
+        background: linear-gradient(135deg, #6366f1 0%, #06b6d4 50%, #8b5cf6 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 24px rgba(99,102,241,0.5));
+        margin-bottom: 0.6rem; line-height: 1;
+    }
+    .auth-tagline {
+        color: #94a3b8; font-size: 0.85rem; letter-spacing: 3px;
+        text-transform: uppercase; margin-bottom: 2.5rem;
+    }
+    .auth-feature {
+        display: flex; align-items: center; gap: 0.8rem;
+        margin-bottom: 1rem; animation: fadeInLeft 0.6s ease both;
+    }
+    .auth-feature-icon {
+        width: 38px; height: 38px; border-radius: 10px;
+        background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; flex-shrink: 0;
+    }
+    .auth-feature-text { font-size: 0.88rem; color: #94a3b8; line-height: 1.4; }
+    .auth-feature-text strong { color: #e2e8f0; display: block; font-size: 0.9rem; }
+    </style>
+    <div class="auth-bg">
+        <div class="orb orb1"></div>
+        <div class="orb orb2"></div>
+        <div class="orb orb3"></div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-    _, center_col, _ = st.columns([1, 1.4, 1])
-    with center_col:
+    left_col, right_col = st.columns([1.1, 1], gap="large")
+
+    # ── LEFT: Branding ────────────────────────────────────────────────
+    with left_col:
+        st.markdown("""
+        <div class="auth-left">
+            <div class="auth-logo">TRAQIFY</div>
+            <div class="auth-tagline">Enterprise Intelligence Platform</div>
+            <div class="auth-feature" style="animation-delay:0.1s">
+                <div class="auth-feature-icon">📊</div>
+                <div class="auth-feature-text">
+                    <strong>Real-time Analytics</strong>
+                    Revenue trends, forecasts & KPI dashboards
+                </div>
+            </div>
+            <div class="auth-feature" style="animation-delay:0.2s">
+                <div class="auth-feature-icon">🚚</div>
+                <div class="auth-feature-text">
+                    <strong>Shipment Tracking</strong>
+                    Live delay detection & supplier scorecards
+                </div>
+            </div>
+            <div class="auth-feature" style="animation-delay:0.3s">
+                <div class="auth-feature-icon">🤖</div>
+                <div class="auth-feature-text">
+                    <strong>AI-Powered Insights</strong>
+                    Anomaly detection & smart reorder predictions
+                </div>
+            </div>
+            <div class="auth-feature" style="animation-delay:0.4s">
+                <div class="auth-feature-icon">📦</div>
+                <div class="auth-feature-text">
+                    <strong>Inventory Management</strong>
+                    Stock alerts, reorder planning & demand forecasting
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── RIGHT: Auth Form ──────────────────────────────────────────────
+    with right_col:
+        st.markdown("<div style='padding: 3rem 0.5rem;'>", unsafe_allow_html=True)
         st.markdown('<div class="auth-card">', unsafe_allow_html=True)
 
         if st.session_state.auth_mode == "login":
             st.markdown("""
-            <div style="text-align:center;margin-bottom:1.5rem;">
-                <span style="font-size:2rem;">🔐</span>
-                <h3 style="margin:0.3rem 0;color:#e2e8f0;">Welcome Back</h3>
-                <p style="color:#64748b;font-size:0.85rem;margin:0;">Sign in to your account</p>
+            <div style="text-align:center; margin-bottom:1.8rem;">
+                <div style="
+                    width:56px; height:56px; border-radius:16px; margin:0 auto 1rem;
+                    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                    display:flex; align-items:center; justify-content:center;
+                    font-size:1.6rem; box-shadow:0 8px 24px rgba(99,102,241,0.4);
+                ">🔐</div>
+                <h3 style="margin:0;color:#e2e8f0;font-size:1.4rem;font-weight:700;">Welcome Back</h3>
+                <p style="color:#64748b;font-size:0.85rem;margin:0.3rem 0 0;">Sign in to your account</p>
             </div>""", unsafe_allow_html=True)
             with st.form("login"):
-                username = st.text_input("👤 Username")
-                password = st.text_input("🔑 Password", type="password")
-                if st.form_submit_button("Login →", use_container_width=True):
+                username = st.text_input("Username", placeholder="Enter your username")
+                password = st.text_input("Password", type="password", placeholder="Enter your password")
+                st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+                if st.form_submit_button("Sign In →", use_container_width=True):
                     with st.spinner("Authenticating..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
                         cursor = conn.cursor()
                         cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
                         row = cursor.fetchone(); cursor.close(); conn.close()
                     if row and row[0] == password:
-                        st.success("✅ Login successful! Loading dashboard...")
-                        time.sleep(0.6)
+                        st.success("✅ Login successful!")
+                        time.sleep(0.5)
                         st.session_state.logged_in = True
-                        st.session_state.username = username
+                        st.session_state.username  = username
                         st.session_state.notif_unlocked = False
                         log_activity(username, "Login")
                         st.rerun()
@@ -680,14 +866,20 @@ def auth_page():
                         st.error("❌ Invalid username or password")
         else:
             st.markdown("""
-            <div style="text-align:center;margin-bottom:1.5rem;">
-                <span style="font-size:2rem;">📝</span>
-                <h3 style="margin:0.3rem 0;color:#e2e8f0;">Create Account</h3>
-                <p style="color:#64748b;font-size:0.85rem;margin:0;">Join the platform today</p>
+            <div style="text-align:center; margin-bottom:1.8rem;">
+                <div style="
+                    width:56px; height:56px; border-radius:16px; margin:0 auto 1rem;
+                    background:linear-gradient(135deg,#06b6d4,#6366f1);
+                    display:flex; align-items:center; justify-content:center;
+                    font-size:1.6rem; box-shadow:0 8px 24px rgba(6,182,212,0.4);
+                ">✨</div>
+                <h3 style="margin:0;color:#e2e8f0;font-size:1.4rem;font-weight:700;">Create Account</h3>
+                <p style="color:#64748b;font-size:0.85rem;margin:0.3rem 0 0;">Join the platform today</p>
             </div>""", unsafe_allow_html=True)
             with st.form("signup"):
-                username = st.text_input("👤 Username")
-                password = st.text_input("🔑 Password", type="password")
+                username = st.text_input("Username", placeholder="Choose a username")
+                password = st.text_input("Password", type="password", placeholder="Create a password")
+                st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
                 if st.form_submit_button("Create Account →", use_container_width=True):
                     with st.spinner("Creating account..."):
                         conn   = mysql.connector.connect(**DB_CONFIG)
@@ -695,32 +887,55 @@ def auth_page():
                         cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
                         exists = cursor.fetchone()
                         if exists:
-                            st.error("⚠️ Username already exists")
+                            st.error("⚠️ Username already taken")
                         else:
-                            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+                            cursor.execute("INSERT INTO users (username, password) VALUES (%s,%s)", (username, password))
                             conn.commit()
-                            st.success("🎉 Account created! You can now log in.")
+                            st.success("🎉 Account created! You can now sign in.")
                         cursor.close(); conn.close()
 
-        st.markdown("---")
-        label = "Don't have an account? Sign Up →" if st.session_state.auth_mode == "login" else "Already have an account? Login →"
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        label = "Don't have an account? Sign Up →" if st.session_state.auth_mode == "login" else "Already have an account? Sign In →"
         if st.button(label, use_container_width=True):
             st.session_state.auth_mode = "signup" if st.session_state.auth_mode == "login" else "login"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ====================================================================
 # 6. MAIN DASHBOARD
 # ====================================================================
 def main_dashboard():
     # ── Sidebar ──────────────────────────────────────────────────────
-    st.sidebar.markdown("""
-    <div style="text-align:center;padding:1rem 0 0.5rem 0;">
-        <div style="font-size:2.5rem;">🚛</div>
-        <h3 style="color:#a5b4fc;margin:0.3rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
-        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Dashboard</p>
+    _uname = st.session_state.get("username", "user")
+    _initial = _uname[:1].upper()
+    st.sidebar.markdown(f"""
+    <div style="padding:1.4rem 1rem 0.8rem;">
+        <div style="
+            font-family:'Orbitron',sans-serif; font-weight:900;
+            font-size:1.4rem; letter-spacing:4px;
+            background:linear-gradient(135deg,#6366f1,#06b6d4,#8b5cf6);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            background-clip:text; margin-bottom:1rem; text-align:center;
+        ">TRAQIFY</div>
+        <div style="
+            display:flex; align-items:center; gap:0.7rem;
+            background:rgba(99,102,241,0.08);
+            border:1px solid rgba(99,102,241,0.2);
+            border-radius:14px; padding:0.6rem 0.9rem;
+        ">
+            <div style="
+                width:36px; height:36px; border-radius:10px; flex-shrink:0;
+                background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                display:flex; align-items:center; justify-content:center;
+                font-size:1rem; font-weight:700; color:white;
+            ">{_initial}</div>
+            <div>
+                <div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">@{_uname}</div>
+                <div style="color:#6366f1;font-size:0.72rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;">User</div>
+            </div>
+        </div>
     </div>
-    <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
+    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.3),transparent);margin:0.4rem 0;"></div>
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Logout", use_container_width=True):
@@ -744,8 +959,8 @@ def main_dashboard():
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
-        <h2>🚛 Supply Chain Intelligence Dashboard</h2>
-        <p>Real-time analytics · Inventory management · Shipment tracking · Demand forecasting</p>
+        <h2>🚛 Traqify — Supply Chain Intelligence</h2>
+        <p>Real-time analytics &nbsp;·&nbsp; Inventory management &nbsp;·&nbsp; Shipment tracking &nbsp;·&nbsp; Demand forecasting</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -819,11 +1034,95 @@ def main_dashboard():
     rev_delta  = rev_second - rev_first
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 Total Revenue",     f"${total_rev:,.0f}",  delta=f"${rev_delta:,.0f}")
-    c2.metric("⚠️ Delayed Shipments", delayed_count)
-    c3.metric("📉 Low Stock Items",   low_stock)
-    c4.metric("📦 Total Products",    product_count)
+
+    _rev_sign = "+" if rev_delta >= 0 else ""
+    _rev_color = "#22c55e" if rev_delta >= 0 else "#ef4444"
+    stc.html(f"""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ background: transparent; font-family: 'Inter', sans-serif; }}
+        .kpi-grid {{
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 4px 2px;
+        }}
+        .kpi-card {{
+            background: rgba(20,18,40,0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 18px; padding: 1.3rem 1.5rem;
+            position: relative; overflow: hidden;
+            transition: transform 0.28s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.28s ease;
+            cursor: default;
+        }}
+        .kpi-card::before {{
+            content:''; position:absolute; inset:0;
+            background: linear-gradient(135deg, rgba(99,102,241,0.07) 0%, transparent 60%);
+            pointer-events:none;
+        }}
+        .kpi-card:hover {{
+            transform: translateY(-7px) scale(1.03);
+            box-shadow: 0 16px 40px rgba(99,102,241,0.3), 0 0 0 1px rgba(99,102,241,0.5);
+        }}
+        .kpi-label {{
+            color: #a5b4fc; font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem;
+        }}
+        .kpi-value {{
+            color: #fff; font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 0.4rem;
+        }}
+        .kpi-delta {{ font-size: 0.78rem; font-weight: 600; }}
+        .kpi-icon {{
+            position: absolute; top: 1rem; right: 1.2rem;
+            font-size: 1.6rem; opacity: 0.15;
+        }}
+    </style>
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon">💰</div>
+            <div class="kpi-label">Total Revenue</div>
+            <div class="kpi-value" id="kpi-rev">$0</div>
+            <div class="kpi-delta" style="color:{_rev_color}" id="kpi-delta">{_rev_sign}${abs(rev_delta):,.0f}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon">⚠️</div>
+            <div class="kpi-label">Delayed Shipments</div>
+            <div class="kpi-value" id="kpi-delay">0</div>
+            <div class="kpi-delta" style="color:#94a3b8;">shipments late</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon">📉</div>
+            <div class="kpi-label">Low Stock Items</div>
+            <div class="kpi-value" id="kpi-stock">0</div>
+            <div class="kpi-delta" style="color:#94a3b8;">below reorder level</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon">📦</div>
+            <div class="kpi-label">Total Products</div>
+            <div class="kpi-value" id="kpi-prod">0</div>
+            <div class="kpi-delta" style="color:#94a3b8;">in catalogue</div>
+        </div>
+    </div>
+    <script>
+        function animateCount(el, target, prefix, suffix, duration) {{
+            var start = 0, startTime = null;
+            function step(timestamp) {{
+                if (!startTime) startTime = timestamp;
+                var progress = Math.min((timestamp - startTime) / duration, 1);
+                var ease = 1 - Math.pow(1 - progress, 4);
+                var current = Math.floor(ease * target);
+                el.textContent = prefix + current.toLocaleString() + suffix;
+                if (progress < 1) requestAnimationFrame(step);
+                else el.textContent = prefix + target.toLocaleString() + suffix;
+            }}
+            requestAnimationFrame(step);
+        }}
+        animateCount(document.getElementById('kpi-rev'),   {int(total_rev)},    '$', '', 1200);
+        animateCount(document.getElementById('kpi-delay'), {delayed_count},      '',  '', 900);
+        animateCount(document.getElementById('kpi-stock'), {low_stock},          '',  '', 900);
+        animateCount(document.getElementById('kpi-prod'),  {product_count},      '',  '', 900);
+    </script>
+    """, height=160)
+
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # ── Export Button ─────────────────────────────────────────────────
@@ -1884,7 +2183,7 @@ def admin_dashboard():
     st.markdown("""
     <div class="hero-banner">
         <h2>⚙️ Traqify Admin Panel</h2>
-        <p>User management · Activity monitoring · Broadcast updates · SQL access</p>
+        <p>User management &nbsp;·&nbsp; Activity monitoring &nbsp;·&nbsp; Broadcast updates &nbsp;·&nbsp; SQL access</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
