@@ -315,6 +315,90 @@ st.markdown("""
     border: 3px solid rgba(99,102,241,0.15) !important;
     border-top-color: var(--primary) !important;
 }
+
+/* ── Skeleton screens ── */
+@keyframes skeletonPulse {
+    0%,100% { opacity: 0.4; }
+    50%      { opacity: 0.9; }
+}
+.skeleton {
+    background: linear-gradient(90deg,
+        rgba(99,102,241,0.06) 25%,
+        rgba(99,102,241,0.14) 50%,
+        rgba(99,102,241,0.06) 75%);
+    background-size: 400% 100%;
+    animation: shimmer 1.6s ease infinite, skeletonPulse 2s ease infinite;
+    border-radius: 10px;
+}
+.skeleton-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px; padding: 1.4rem 1.6rem;
+    margin-bottom: 1rem; overflow: hidden;
+}
+.sk-line  { height: 12px; margin-bottom: 10px; }
+.sk-title { height: 20px; width: 40%; margin-bottom: 14px; }
+.sk-chart { height: 180px; border-radius: 12px; }
+.sk-short { width: 60%; }
+.sk-med   { width: 80%; }
+
+/* ── Floating Action Button ── */
+.fab-container {
+    position: fixed; bottom: 2rem; right: 1.5rem; z-index: 9999;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem;
+}
+.fab {
+    width: 52px; height: 52px; border-radius: 16px; cursor: pointer;
+    background: linear-gradient(135deg, var(--primary), var(--violet));
+    border: none; color: white; font-size: 1.3rem;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.5);
+    transition: transform 0.22s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.22s ease;
+    display: flex; align-items: center; justify-content: center;
+}
+.fab:hover {
+    transform: scale(1.12) translateY(-2px);
+    box-shadow: 0 14px 36px rgba(99,102,241,0.65);
+}
+.fab-top {
+    background: linear-gradient(135deg, #0f172a, #1e1b4b) !important;
+    border: 1px solid var(--border) !important;
+    font-size: 1rem !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Timeline ── */
+.timeline { padding: 0.5rem 0; }
+.timeline-item {
+    display: flex; gap: 1rem; margin-bottom: 1.2rem;
+    animation: fadeInUp 0.4s ease both;
+}
+.timeline-dot {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; margin-top: 2px;
+}
+.timeline-line {
+    width: 2px; background: linear-gradient(180deg, var(--primary), transparent);
+    margin: 0 17px; flex-shrink: 0;
+}
+.timeline-body { flex: 1; }
+.timeline-action { color: #e2e8f0; font-size: 0.88rem; font-weight: 500; }
+.timeline-meta   { color: #475569; font-size: 0.76rem; margin-top: 2px; }
+
+/* ── User cards ── */
+.user-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.2rem 1.4rem;
+    transition: border-color 0.25s, transform 0.25s;
+    display: flex; align-items: center; gap: 1rem;
+}
+.user-card:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+.user-avatar {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary), var(--violet));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 700; color: white;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -591,8 +675,35 @@ init_activity_log()
 # ====================================================================
 CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(15,14,23,0.6)",
-    font=dict(family="Inter", color="#e2e8f0"),
+    plot_bgcolor="rgba(10,9,20,0.7)",
+    font=dict(family="Inter", color="#e2e8f0", size=12),
+    title_font=dict(family="Inter", color="#e2e8f0", size=14),
+    xaxis=dict(
+        gridcolor="rgba(99,102,241,0.08)",
+        linecolor="rgba(99,102,241,0.15)",
+        tickfont=dict(color="#64748b", size=11),
+        title_font=dict(color="#94a3b8"),
+        zeroline=False,
+    ),
+    yaxis=dict(
+        gridcolor="rgba(99,102,241,0.08)",
+        linecolor="rgba(99,102,241,0.15)",
+        tickfont=dict(color="#64748b", size=11),
+        title_font=dict(color="#94a3b8"),
+        zeroline=False,
+    ),
+    legend=dict(
+        bgcolor="rgba(15,14,30,0.7)",
+        bordercolor="rgba(99,102,241,0.2)",
+        borderwidth=1,
+        font=dict(color="#94a3b8", size=11),
+    ),
+    hoverlabel=dict(
+        bgcolor="rgba(20,18,40,0.95)",
+        bordercolor="rgba(99,102,241,0.4)",
+        font=dict(family="Inter", color="#e2e8f0", size=12),
+    ),
+    margin=dict(l=10, r=10, t=40, b=10),
 )
 
 def to_excel_bytes(dfs: dict) -> bytes:
@@ -722,6 +833,27 @@ def smart_reorder(products_df, sales_df, days_ahead=30):
     cols = ["product_id"] + (["product_name"] if "product_name" in m.columns else []) + ["stock_quantity","daily_sales","days_until_out","urgency","units_to_order"]
     return m[cols].sort_values("days_until_out")
 
+
+def render_skeleton():
+    """Show animated skeleton placeholders while data loads."""
+    st.markdown("""
+    <div class="skeleton-card">
+        <div class="skeleton sk-title"></div>
+        <div class="skeleton sk-line sk-med"></div>
+        <div class="skeleton sk-line sk-short"></div>
+        <div class="skeleton sk-chart" style="margin-top:0.8rem;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="skeleton-card">
+            <div class="skeleton sk-title"></div>
+            <div class="skeleton sk-chart" style="height:120px;"></div>
+        </div>
+        <div class="skeleton-card">
+            <div class="skeleton sk-title"></div>
+            <div class="skeleton sk-chart" style="height:120px;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ====================================================================
 # 5. AUTH PAGE
@@ -992,15 +1124,77 @@ def main_dashboard():
             log_activity(st.session_state.get("username", "?"), "Uploaded CSV files")
 
     if not data_loaded:
+        # ── Onboarding banner ──────────────────────────────────────────
+        _ob_dismissed = st.session_state.get("onboarding_dismissed", False)
+        if not _ob_dismissed:
+            st.markdown("""
+            <div style="
+                background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));
+                border:1px solid rgba(99,102,241,0.3); border-radius:18px;
+                padding:1.6rem 2rem; margin-bottom:1.4rem;
+                animation:fadeInDown 0.6s ease both; position:relative;
+            ">
+                <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;">
+                    <div style="
+                        width:48px;height:48px;border-radius:14px;flex-shrink:0;
+                        background:linear-gradient(135deg,#6366f1,#06b6d4);
+                        display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+                    ">👋</div>
+                    <div>
+                        <div style="color:#e2e8f0;font-weight:700;font-size:1rem;">Welcome to Traqify!</div>
+                        <div style="color:#94a3b8;font-size:0.83rem;">Get started in 3 easy steps</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem;">
+                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
+                        <div style="font-size:1.4rem;margin-bottom:0.4rem;">📋</div>
+                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 1</div>
+                        <div style="color:#94a3b8;font-size:0.8rem;">Download the Upload Template from the sidebar</div>
+                    </div>
+                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
+                        <div style="font-size:1.4rem;margin-bottom:0.4rem;">�</div>
+                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 2</div>
+                        <div style="color:#94a3b8;font-size:0.8rem;">Fill in your data and upload it via Excel or CSV</div>
+                    </div>
+                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
+                        <div style="font-size:1.4rem;margin-bottom:0.4rem;">🚀</div>
+                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 3</div>
+                        <div style="color:#94a3b8;font-size:0.8rem;">Explore analytics, forecasts and AI insights</div>
+                    </div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("✕ Dismiss", key="dismiss_onboarding"):
+                st.session_state.onboarding_dismissed = True
+                st.rerun()
+
+        # ── Styled upload drop zone ────────────────────────────────────
         st.markdown("""
-        <div style="background:linear-gradient(135deg,rgba(234,179,8,0.1),rgba(234,179,8,0.05));
-            border:1px solid rgba(234,179,8,0.3);border-radius:14px;
-            padding:1.5rem 2rem;text-align:center;animation:fadeInUp 0.5s ease both;">
-            <div style="font-size:2rem;margin-bottom:0.5rem;">📂</div>
-            <h4 style="color:#fbbf24;margin:0;">No data loaded yet</h4>
-            <p style="color:#94a3b8;margin:0.3rem 0 0 0;font-size:0.9rem;">
-                Upload your Excel or CSV files from the sidebar to get started.</p>
+        <div style="
+            border: 2px dashed rgba(99,102,241,0.4); border-radius: 20px;
+            padding: 3.5rem 2rem; text-align: center;
+            background: rgba(99,102,241,0.03);
+            animation: fadeInUp 0.6s ease both;
+            transition: border-color 0.3s, background 0.3s;
+        ">
+            <div style="font-size:3.5rem;margin-bottom:1rem;filter:drop-shadow(0 0 16px rgba(99,102,241,0.4));">📂</div>
+            <h3 style="color:#a5b4fc;margin:0 0 0.4rem;font-size:1.2rem;font-weight:700;">No data loaded yet</h3>
+            <p style="color:#64748b;margin:0;font-size:0.88rem;max-width:340px;margin:0 auto;">
+                Upload your <strong style="color:#94a3b8;">Excel (.xlsx)</strong> or
+                <strong style="color:#94a3b8;">CSV files</strong> using the sidebar panel to unlock the full dashboard.
+            </p>
+            <div style="margin-top:1.4rem;display:flex;justify-content:center;gap:0.6rem;flex-wrap:wrap;">
+                <span style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);
+                    color:#a5b4fc;padding:4px 12px;border-radius:20px;font-size:0.78rem;">📊 Revenue Analytics</span>
+                <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);
+                    color:#67e8f9;padding:4px 12px;border-radius:20px;font-size:0.78rem;">🚚 Shipment Tracking</span>
+                <span style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);
+                    color:#c4b5fd;padding:4px 12px;border-radius:20px;font-size:0.78rem;">🤖 AI Insights</span>
+                <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);
+                    color:#86efac;padding:4px 12px;border-radius:20px;font-size:0.78rem;">📦 Inventory Alerts</span>
+            </div>
         </div>""", unsafe_allow_html=True)
+
+        render_skeleton()
         st.stop()
 
     # ── Data Prep ─────────────────────────────────────────────────────
@@ -1310,6 +1504,28 @@ def main_dashboard():
                 key="notepad_export",
             )
 
+    # ── Sidebar footer ────────────────────────────────────────────────
+    _now = datetime.datetime.now().strftime("%d %b %Y, %H:%M")
+    st.sidebar.markdown(f"""
+    <div style="
+        margin-top: 2rem; padding: 0.9rem 1rem;
+        border-top: 1px solid rgba(99,102,241,0.15);
+        text-align: center;
+    ">
+        <div style="
+            font-family:'Orbitron',sans-serif; font-size:0.65rem;
+            letter-spacing:3px; font-weight:700;
+            background:linear-gradient(135deg,#6366f1,#06b6d4);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            background-clip:text; margin-bottom:0.4rem;
+        ">TRAQIFY</div>
+        <div style="color:#334155;font-size:0.7rem;margin-bottom:0.2rem;">v3.1 &nbsp;·&nbsp; Supply Chain AI</div>
+        <div style="color:#1e293b;font-size:0.68rem;">
+            🕐 Last refresh: {_now}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── Tabs ──────────────────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Revenue & Forecast",
@@ -1538,11 +1754,10 @@ def main_dashboard():
                 title=f"Supplier Distribution by {col_map} (from {source_name})",
             )
             fig_map.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                geo=dict(bgcolor="rgba(15,14,23,0.8)", showframe=False,
-                         showcoastlines=True, coastlinecolor="#334155",
-                         landcolor="#1e1b4b", oceancolor="#0f0e17", showocean=True),
-                font=dict(family="Inter", color="#e2e8f0"),
+                **CHART_LAYOUT,
+                geo=dict(bgcolor="rgba(10,9,20,0.8)", showframe=False,
+                         showcoastlines=True, coastlinecolor="rgba(99,102,241,0.2)",
+                         landcolor="#0f0e1f", oceancolor="#07060f", showocean=True),
                 margin=dict(l=0, r=0, t=40, b=0),
             )
             st.plotly_chart(fig_map, use_container_width=True)
@@ -1876,10 +2091,7 @@ def main_dashboard():
                                color_discrete_map=color_map, template="plotly_dark",
                                title="Monthly Revenue — Anomalies Highlighted",
                                labels={"month_dt":"Month","revenue":"Revenue ($)","type":"Status"})
-                fig_a.update_layout(paper_bgcolor="rgba(0,0,0,0)",
-                                    plot_bgcolor="rgba(15,14,23,0.6)",
-                                    font=dict(family="Inter",color="#e2e8f0"),
-                                    margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
+                fig_a.update_layout(**CHART_LAYOUT, showlegend=True)
                 st.plotly_chart(fig_a, use_container_width=True)
                 flagged = adf[adf["anomaly"]][["month_dt","revenue","z_score","type"]].copy()
                 flagged["revenue"] = flagged["revenue"].map("${:,.0f}".format)
@@ -1904,10 +2116,7 @@ def main_dashboard():
                                    text="avg_delay",
                                    labels={"supplier_id":"Supplier","avg_delay":"Avg Delay (days)","flag":"Status"})
                     fig_d.update_traces(texttemplate="%{text:.1f}d", textposition="outside")
-                    fig_d.update_layout(paper_bgcolor="rgba(0,0,0,0)",
-                                        plot_bgcolor="rgba(15,14,23,0.6)",
-                                        font=dict(family="Inter",color="#e2e8f0"),
-                                        margin=dict(l=10,r=10,t=40,b=10), showlegend=True)
+                    fig_d.update_layout(**CHART_LAYOUT, showlegend=True)
                     st.plotly_chart(fig_d, use_container_width=True)
                     crit = ddf[ddf["flag"]=="Critical"]
                     if not crit.empty:
@@ -1936,10 +2145,7 @@ def main_dashboard():
                                    labels={name_c:"Product","days_until_out":"Days Until Out","urgency":"Status"})
                     fig_r.add_hline(y=days_ahead, line_dash="dash", line_color="#6366f1",
                                     annotation_text=f"Horizon ({days_ahead}d)")
-                    fig_r.update_layout(paper_bgcolor="rgba(0,0,0,0)",
-                                        plot_bgcolor="rgba(15,14,23,0.6)",
-                                        font=dict(family="Inter",color="#e2e8f0"),
-                                        margin=dict(l=10,r=10,t=40,b=80), showlegend=True)
+                    fig_r.update_layout(**CHART_LAYOUT, showlegend=True, margin=dict(l=10,r=10,t=40,b=80))
                     st.plotly_chart(fig_r, use_container_width=True)
                     uf = st.selectbox("Filter urgency",["All","Order Now","Soon","Watch","OK"],key="urg_filter")
                     show = rdf if uf=="All" else rdf[rdf["urgency"]==uf]
@@ -2152,6 +2358,62 @@ def main_dashboard():
             </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # ── Floating Action Buttons (FAB) ─────────────────────────────────
+    stc.html("""
+    <style>
+    .fab-wrap {
+        position: fixed; bottom: 1.8rem; right: 1.4rem;
+        display: flex; flex-direction: column; align-items: flex-end;
+        gap: 0.5rem; z-index: 9999;
+    }
+    .fab-btn {
+        width: 50px; height: 50px; border-radius: 14px; border: none;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; transition: transform 0.22s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.22s;
+    }
+    .fab-chat {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        box-shadow: 0 8px 24px rgba(99,102,241,0.55);
+    }
+    .fab-top {
+        background: rgba(15,14,30,0.9);
+        border: 1px solid rgba(99,102,241,0.3) !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .fab-btn:hover { transform: scale(1.13) translateY(-2px); }
+    .fab-btn:active { transform: scale(0.95); }
+    .fab-label {
+        position: absolute; right: 58px;
+        background: rgba(20,18,40,0.95); border: 1px solid rgba(99,102,241,0.3);
+        color: #e2e8f0; font-size: 0.75rem; font-weight: 600;
+        padding: 4px 10px; border-radius: 8px; white-space: nowrap;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.2s ease;
+        font-family: 'Inter', sans-serif;
+    }
+    .fab-btn:hover + .fab-label,
+    .fab-wrap-item:hover .fab-label { opacity: 1; }
+    .fab-wrap-item { position: relative; display: flex; align-items: center; }
+    </style>
+    <div class="fab-wrap">
+        <div class="fab-wrap-item">
+            <button class="fab-btn fab-chat" title="Chat with Admin"
+                onclick="window.parent.document.querySelectorAll('[data-baseweb=tab]')[6]?.click()">
+                💬
+            </button>
+            <span class="fab-label">Chat with Admin</span>
+        </div>
+        <div class="fab-wrap-item">
+            <button class="fab-btn fab-top" title="Back to top"
+                onclick="window.parent.scrollTo({top:0,behavior:'smooth'})">
+                ↑
+            </button>
+            <span class="fab-label">Back to top</span>
+        </div>
+    </div>
+    """, height=130)
+
     st.markdown("""
     <div style="text-align:center;color:#334155;font-size:0.78rem;padding:0.5rem 0 1rem 0;">
         Supply Chain AI Enterprise · Built with Streamlit & MySQL
@@ -2213,17 +2475,57 @@ def admin_dashboard():
         st.markdown("### 👥 User Management")
         try:
             conn_u = mysql.connector.connect(**DB_CONFIG)
-            um_df = pd.read_sql("SELECT id, username, email FROM users WHERE username != 'lunalupa' ORDER BY id", conn_u)
+            um_df = pd.read_sql("SELECT id, username, email, name FROM users WHERE username != 'lunalupa' ORDER BY id", conn_u)
             conn_u.close()
         except Exception as e:
             um_df = pd.DataFrame()
             st.error(f"Error: {e}")
 
-        if not um_df.empty:
-            st.dataframe(um_df, use_container_width=True, hide_index=True)
-            st.markdown("---")
-            col_del, col_reset = st.columns(2)
+        if um_df.empty:
+            st.info("No users registered yet.")
+        else:
+            st.markdown(f"<p style='color:#64748b;font-size:0.85rem;margin-bottom:1rem;'>{len(um_df)} registered user{'s' if len(um_df)!=1 else ''}</p>", unsafe_allow_html=True)
 
+            # ── User cards grid ──────────────────────────────────────
+            cards_html = "<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-bottom:1.5rem;'>"
+            for _, row in um_df.iterrows():
+                uname   = str(row["username"])
+                email   = str(row.get("email") or "—")
+                name    = str(row.get("name")  or "")
+                uid     = int(row["id"])
+                initial = uname[:1].upper()
+                display = name if name and name != "None" else uname
+                cards_html += f"""
+                <div style="
+                    background:rgba(20,18,40,0.85); border:1px solid rgba(99,102,241,0.2);
+                    border-radius:16px; padding:1.1rem 1.3rem;
+                    transition:border-color 0.25s,transform 0.25s;
+                    animation:fadeInUp 0.4s ease both;
+                ">
+                    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
+                        <div style="
+                            width:42px;height:42px;border-radius:12px;flex-shrink:0;
+                            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:1.1rem;font-weight:700;color:white;
+                        ">{initial}</div>
+                        <div>
+                            <div style="color:#e2e8f0;font-weight:600;font-size:0.9rem;">{display}</div>
+                            <div style="color:#475569;font-size:0.75rem;">ID #{uid}</div>
+                        </div>
+                    </div>
+                    <div style="background:rgba(15,14,30,0.5);border-radius:8px;padding:0.5rem 0.7rem;">
+                        <div style="color:#64748b;font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Email</div>
+                        <div style="color:#94a3b8;font-size:0.82rem;word-break:break-all;">{email}</div>
+                    </div>
+                </div>"""
+            cards_html += "</div>"
+            st.markdown(cards_html, unsafe_allow_html=True)
+
+            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+            # ── Actions ──────────────────────────────────────────────
+            col_del, col_reset = st.columns(2)
             with col_del:
                 st.markdown("#### 🗑️ Remove User")
                 del_options = [u for u in um_df["username"].tolist() if u != "lunalupa"]
@@ -2443,18 +2745,93 @@ def admin_dashboard():
 
     # ── TAB 3: Inbox & Logs ──
     with a3:
-        st.markdown("### 📋 User Activity Log")
-        log_df = get_activity_log(500)
+        st.markdown("### 📋 Activity Timeline")
+
+        col_tl1, col_tl2 = st.columns([3, 1])
+        with col_tl1:
+            log_search = st.text_input("🔍 Search", placeholder="username or action", key="admin_log_search")
+        with col_tl2:
+            log_limit = st.selectbox("Show", [50, 100, 200, 500], index=1, key="log_limit")
+
+        log_df = get_activity_log(log_limit)
         if log_df.empty:
             st.info("No activity recorded yet.")
         else:
-            log_search = st.text_input("🔍 Search", placeholder="username or action", key="admin_log_search")
             if log_search:
                 mask = log_df.apply(lambda r: r.astype(str).str.contains(log_search, case=False).any(), axis=1)
                 log_df = log_df[mask]
-            st.dataframe(log_df, use_container_width=True, height=450, hide_index=True)
-            st.download_button("📥 Export CSV", data=log_df.to_csv(index=False).encode(),
-                               file_name=f"activity_{datetime.date.today()}.csv", mime="text/csv")
+
+            # Map action keywords to icons + colors
+            def _tl_icon(action):
+                a = str(action).lower()
+                if "login"    in a: return "🔐", "rgba(99,102,241,0.15)",  "#a5b4fc"
+                if "logout"   in a: return "🚪", "rgba(100,116,139,0.15)", "#94a3b8"
+                if "upload"   in a: return "📊", "rgba(6,182,212,0.15)",   "#67e8f9"
+                if "email"    in a: return "📧", "rgba(139,92,246,0.15)",  "#c4b5fd"
+                if "delete"   in a: return "🗑️", "rgba(239,68,68,0.15)",   "#f87171"
+                if "reset"    in a: return "🔑", "rgba(245,158,11,0.15)",  "#fbbf24"
+                if "chat"     in a: return "💬", "rgba(34,197,94,0.15)",   "#86efac"
+                if "sql"      in a: return "🗿", "rgba(100,116,139,0.15)", "#94a3b8"
+                if "broadcast"in a: return "📢", "rgba(139,92,246,0.15)",  "#c4b5fd"
+                if "profile"  in a: return "👤", "rgba(6,182,212,0.15)",   "#67e8f9"
+                if "schedule" in a: return "📅", "rgba(234,179,8,0.15)",   "#fde047"
+                return                     "⚡", "rgba(99,102,241,0.10)",  "#a5b4fc"
+
+            # Build timeline HTML
+            items_html = ""
+            for i, (_, row) in enumerate(log_df.iterrows()):
+                username = str(row.get("username", "?"))
+                action   = str(row.get("action",   row.get("activity", "?")))
+                ts       = str(row.get("timestamp", row.get("created_at", "")))[:16]
+                icon, bg, color = _tl_icon(action)
+                delay = min(i * 0.03, 0.6)
+                items_html += f"""
+                <div class="tl-item" style="animation-delay:{delay}s">
+                    <div class="tl-dot" style="background:{bg};border:1px solid {color};">{icon}</div>
+                    <div class="tl-connector"></div>
+                    <div class="tl-body">
+                        <div class="tl-action">{action}</div>
+                        <div class="tl-meta">
+                            <span style="color:{color};font-weight:600;">@{username}</span>
+                            &nbsp;·&nbsp; {ts}
+                        </div>
+                    </div>
+                </div>"""
+
+            st.markdown(f"""
+            <style>
+            .tl-wrap {{ max-height:520px; overflow-y:auto; padding:0.5rem 0; }}
+            .tl-item {{
+                display:flex; align-items:flex-start; gap:0.8rem;
+                margin-bottom:0.9rem; animation:fadeInUp 0.4s ease both;
+                padding-right:0.5rem;
+            }}
+            .tl-dot {{
+                width:36px; height:36px; border-radius:10px; flex-shrink:0;
+                display:flex; align-items:center; justify-content:center;
+                font-size:1rem; margin-top:2px;
+            }}
+            .tl-connector {{
+                position:absolute; display:none;
+            }}
+            .tl-body {{ flex:1; background:rgba(20,18,40,0.5);
+                border:1px solid rgba(99,102,241,0.12); border-radius:12px;
+                padding:0.6rem 0.9rem;
+                transition:border-color 0.2s;
+            }}
+            .tl-body:hover {{ border-color:rgba(99,102,241,0.3); }}
+            .tl-action {{ color:#e2e8f0; font-size:0.87rem; font-weight:500; }}
+            .tl-meta   {{ color:#475569; font-size:0.75rem; margin-top:3px; }}
+            </style>
+            <div class="tl-wrap">{items_html}</div>
+            """, unsafe_allow_html=True)
+
+            st.download_button(
+                "📥 Export CSV",
+                data=log_df.to_csv(index=False).encode(),
+                file_name=f"activity_{datetime.date.today()}.csv",
+                mime="text/csv",
+            )
 
     # ── TAB 4: SQL Console ──
     with a4:
