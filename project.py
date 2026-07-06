@@ -40,19 +40,19 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@700;900&display=swap');
 
 :root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --accent: #06b6d4;
-    --violet: #8b5cf6;
-    --bg-deep: #07060f;
-    --bg-card: rgba(20,18,40,0.85);
-    --bg-card2: rgba(30,27,75,0.7);
-    --border: rgba(99,102,241,0.25);
-    --border-hover: rgba(99,102,241,0.6);
-    --text: #e2e8f0;
+    --primary: #06b6d4;
+    --primary-dark: #0891b2;
+    --accent: #22d3ee;
+    --violet: #0e7490;
+    --bg-deep: #020617;
+    --bg-card: rgba(2,10,28,0.85);
+    --bg-card2: rgba(3,14,38,0.7);
+    --border: rgba(6,182,212,0.2);
+    --border-hover: rgba(6,182,212,0.55);
+    --text: #f0f9ff;
     --text-muted: #94a3b8;
-    --text-dim: #64748b;
-    --success: #22c55e;
+    --text-dim: #475569;
+    --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
 }
@@ -70,13 +70,13 @@ html, body, [class*="css"] {
 @keyframes floatY      { 0%,100% { transform:translateY(0);   } 50% { transform:translateY(-8px); } }
 @keyframes gradientShift { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
 @keyframes shimmer     { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
-@keyframes pulseGlow   { 0%,100% { box-shadow:0 0 0 0 rgba(99,102,241,0.0); } 50% { box-shadow:0 0 22px 4px rgba(99,102,241,0.18); } }
+@keyframes pulseGlow   { 0%,100% { box-shadow:0 0 0 0 rgba(6,182,212,0.0); } 50% { box-shadow:0 0 22px 4px rgba(6,182,212,0.18); } }
 @keyframes spin        { to { transform:rotate(360deg); } }
 @keyframes borderFlow  {
-    0%   { border-color: rgba(99,102,241,0.3); }
-    33%  { border-color: rgba(6,182,212,0.4); }
-    66%  { border-color: rgba(139,92,246,0.4); }
-    100% { border-color: rgba(99,102,241,0.3); }
+    0%   { border-color: rgba(6,182,212,0.2); }
+    33%  { border-color: rgba(34,211,238,0.35); }
+    66%  { border-color: rgba(14,116,144,0.3); }
+    100% { border-color: rgba(6,182,212,0.2); }
 }
 @keyframes countUp { from { opacity:0; transform:scale(0.6) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
 </style>
@@ -113,15 +113,15 @@ p, span, label { color: var(--text-muted); }
 }
 [data-testid="metric-container"]::before {
     content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, transparent 60%);
+    background: linear-gradient(135deg, rgba(6,182,212,0.05) 0%, transparent 60%);
     pointer-events: none;
 }
 [data-testid="metric-container"]:hover {
     transform: translateY(-7px) scale(1.03);
-    box-shadow: 0 16px 40px rgba(99,102,241,0.3), 0 0 0 1px rgba(99,102,241,0.5);
+    box-shadow: 0 16px 40px rgba(6,182,212,0.2), 0 0 0 1px rgba(6,182,212,0.4);
 }
 [data-testid="metric-container"] > div:first-child {
-    color: #a5b4fc !important; font-size: 0.75rem !important;
+    color: #67e8f9 !important; font-size: 0.75rem !important;
     text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;
 }
 [data-testid="stMetricValue"] {
@@ -156,7 +156,7 @@ st.markdown("""
 .stButton > button:hover::before { left: 150%; }
 .stButton > button:hover {
     transform: translateY(-3px) !important;
-    box-shadow: 0 10px 28px rgba(99,102,241,0.45) !important;
+    box-shadow: 0 10px 28px rgba(6,182,212,0.4) !important;
 }
 .stButton > button:active { transform: scale(0.97) !important; }
 
@@ -173,14 +173,14 @@ st.markdown("""
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
     border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.18) !important;
+    box-shadow: 0 0 0 3px rgba(6,182,212,0.15) !important;
     outline: none !important;
 }
 
 /* ── Sidebar ── */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg,
-        #0a0914 0%, #0f0e1f 30%, #111827 70%, #0c1220 100%) !important;
+        #020617 0%, #030e26 40%, #020f1f 100%) !important;
     border-right: 1px solid var(--border) !important;
     animation: fadeInLeft 0.5s ease both;
 }
@@ -203,7 +203,7 @@ st.markdown("""
 .stTabs [aria-selected="true"] {
     background: linear-gradient(135deg, var(--primary), var(--violet)) !important;
     color: white !important;
-    box-shadow: 0 4px 18px rgba(99,102,241,0.45) !important;
+    box-shadow: 0 4px 18px rgba(6,182,212,0.35) !important;
 }
 
 /* ── DataFrames ── */
@@ -213,18 +213,18 @@ st.markdown("""
     animation: fadeInUp 0.6s ease both;
     transition: box-shadow 0.3s;
 }
-[data-testid="stDataFrame"]:hover { box-shadow: 0 8px 32px rgba(99,102,241,0.18); }
+[data-testid="stDataFrame"]:hover { box-shadow: 0 8px 32px rgba(6,182,212,0.15); }
 
 /* ── Charts ── */
 [data-testid="stPlotlyChart"] {
     border-radius: 18px !important; overflow: hidden;
     border: 1px solid var(--border) !important;
-    background: rgba(10,9,20,0.5) !important;
+    background: rgba(2,6,23,0.6) !important;
     animation: fadeInUp 0.7s ease both;
     transition: box-shadow 0.3s, transform 0.3s;
 }
 [data-testid="stPlotlyChart"]:hover {
-    box-shadow: 0 12px 40px rgba(6,182,212,0.18);
+    box-shadow: 0 12px 40px rgba(6,182,212,0.2);
     transform: translateY(-2px);
 }
 
@@ -250,7 +250,7 @@ st.markdown("""
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #07060f; }
+::-webkit-scrollbar-track { background: #020617; }
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, var(--primary), var(--violet));
     border-radius: 4px;
@@ -258,36 +258,36 @@ st.markdown("""
 
 /* ── Auth card ── */
 .auth-card {
-    background: var(--bg-card);
+    background: rgba(2,10,28,0.9);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid var(--border);
     border-radius: 24px; padding: 2.8rem 2.2rem;
     animation: fadeInUp 0.7s cubic-bezier(.175,.885,.32,1.275) both;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(6,182,212,0.06);
     position: relative; overflow: hidden;
 }
 .auth-card::before {
     content: ''; position: absolute;
     top: -60%; left: -60%; width: 120%; height: 120%;
-    background: radial-gradient(ellipse at center, rgba(99,102,241,0.06) 0%, transparent 70%);
+    background: radial-gradient(ellipse at center, rgba(6,182,212,0.04) 0%, transparent 70%);
     pointer-events: none;
 }
 
 /* ── Hero banner ── */
 .hero-banner {
-    background: linear-gradient(135deg, #0f0e1f 0%, #1a1545 40%, #0e1e35 100%);
+    background: linear-gradient(135deg, #020617 0%, #03142e 40%, #020f1f 100%);
     background-size: 300% 300%;
     animation: gradientShift 8s ease infinite;
     border-radius: 20px; padding: 1.8rem 2.4rem; margin-bottom: 1.4rem;
     border: 1px solid var(--border);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
     position: relative; overflow: hidden;
 }
 .hero-banner::after {
     content: ''; position: absolute;
     top: 0; right: 0; width: 40%; height: 100%;
-    background: radial-gradient(ellipse at right, rgba(6,182,212,0.07) 0%, transparent 70%);
+    background: radial-gradient(ellipse at right, rgba(6,182,212,0.08) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-banner h2 {
@@ -312,7 +312,7 @@ st.markdown("""
 
 /* ── Spinner ── */
 .stSpinner > div {
-    border: 3px solid rgba(99,102,241,0.15) !important;
+    border: 3px solid rgba(6,182,212,0.12) !important;
     border-top-color: var(--primary) !important;
 }
 
@@ -323,9 +323,9 @@ st.markdown("""
 }
 .skeleton {
     background: linear-gradient(90deg,
-        rgba(99,102,241,0.06) 25%,
-        rgba(99,102,241,0.14) 50%,
-        rgba(99,102,241,0.06) 75%);
+        rgba(6,182,212,0.04) 25%,
+        rgba(6,182,212,0.10) 50%,
+        rgba(6,182,212,0.04) 75%);
     background-size: 400% 100%;
     animation: shimmer 1.6s ease infinite, skeletonPulse 2s ease infinite;
     border-radius: 10px;
@@ -351,16 +351,16 @@ st.markdown("""
     width: 52px; height: 52px; border-radius: 16px; cursor: pointer;
     background: linear-gradient(135deg, var(--primary), var(--violet));
     border: none; color: white; font-size: 1.3rem;
-    box-shadow: 0 8px 24px rgba(99,102,241,0.5);
+    box-shadow: 0 8px 24px rgba(6,182,212,0.4);
     transition: transform 0.22s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.22s ease;
     display: flex; align-items: center; justify-content: center;
 }
 .fab:hover {
     transform: scale(1.12) translateY(-2px);
-    box-shadow: 0 14px 36px rgba(99,102,241,0.65);
+    box-shadow: 0 14px 36px rgba(6,182,212,0.55);
 }
 .fab-top {
-    background: linear-gradient(135deg, #0f172a, #1e1b4b) !important;
+    background: linear-gradient(135deg, #020617, #03142e) !important;
     border: 1px solid var(--border) !important;
     font-size: 1rem !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
@@ -582,9 +582,9 @@ def load_from_gsheet(url: str):
 
 def email_template(title: str, body_html: str) -> str:
     return f"""
-    <html><body style="background:#0f0e17;font-family:Inter,sans-serif;padding:2rem;">
-    <div style="max-width:600px;margin:auto;background:#1e1b4b;border-radius:14px;padding:2rem;">
-      <h2 style="color:#a5b4fc;margin-top:0;">{title}</h2>
+    <html><body style="background:#020617;font-family:Inter,sans-serif;padding:2rem;">
+    <div style="max-width:600px;margin:auto;background:#03142e;border-radius:14px;padding:2rem;border:1px solid rgba(6,182,212,0.2);">
+      <h2 style="color:#67e8f9;margin-top:0;">{title}</h2>
       {body_html}
       <hr style="border-color:#334155;margin:1.5rem 0;">
       <p style="color:#475569;font-size:0.78rem;margin:0;">Supply Chain AI Enterprise · Traqify</p>
@@ -621,9 +621,9 @@ def send_low_stock_alert(to: str, df: pd.DataFrame) -> bool:
     <p style='color:#94a3b8;'>The following items are below reorder level:</p>
     <table style='width:100%;border-collapse:collapse;'>
       <thead><tr>
-        <th style='padding:6px 12px;color:#a5b4fc;text-align:left;'>Product</th>
-        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Stock</th>
-        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Reorder Level</th>
+        <th style='padding:6px 12px;color:#67e8f9;text-align:left;'>Product</th>
+        <th style='padding:6px 12px;color:#67e8f9;text-align:right;'>Stock</th>
+        <th style='padding:6px 12px;color:#67e8f9;text-align:right;'>Reorder Level</th>
       </tr></thead><tbody>{rows}</tbody>
     </table>"""
     return send_email(to, "⚠️ Low Stock Alert — Supply Chain AI", email_template("⚠️ Low Stock Alert", body))
@@ -639,8 +639,8 @@ def send_delay_alert(to: str, df: pd.DataFrame) -> bool:
     <p style='color:#94a3b8;'>The following shipments are delayed:</p>
     <table style='width:100%;border-collapse:collapse;'>
       <thead><tr>
-        <th style='padding:6px 12px;color:#a5b4fc;text-align:left;'>Shipment ID</th>
-        <th style='padding:6px 12px;color:#a5b4fc;text-align:right;'>Delay</th>
+        <th style='padding:6px 12px;color:#67e8f9;text-align:left;'>Shipment ID</th>
+        <th style='padding:6px 12px;color:#67e8f9;text-align:right;'>Delay</th>
       </tr></thead><tbody>{rows}</tbody>
     </table>"""
     return send_email(to, "🚚 Shipment Delay Alert — Supply Chain AI", email_template("🚚 Delay Alert", body))
@@ -651,7 +651,7 @@ def send_summary_email(to: str, total_rev, delayed, low_stock, products) -> bool
     <p style='color:#94a3b8;'>Here is your dashboard summary:</p>
     <table style='width:100%;'>
       <tr><td style='color:#94a3b8;padding:6px 0;'>💰 Total Revenue</td>
-          <td style='color:#a5b4fc;text-align:right;font-weight:600;'>${total_rev:,.2f}</td></tr>
+          <td style='color:#67e8f9;text-align:right;font-weight:600;'>${total_rev:,.2f}</td></tr>
       <tr><td style='color:#94a3b8;padding:6px 0;'>⚠️ Delayed Shipments</td>
           <td style='color:#f87171;text-align:right;font-weight:600;'>{delayed}</td></tr>
       <tr><td style='color:#94a3b8;padding:6px 0;'>📉 Low Stock Items</td>
@@ -675,33 +675,33 @@ init_activity_log()
 # ====================================================================
 CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(10,9,20,0.7)",
-    font=dict(family="Inter", color="#e2e8f0", size=12),
-    title_font=dict(family="Inter", color="#e2e8f0", size=14),
+    plot_bgcolor="rgba(2,6,23,0.8)",
+    font=dict(family="Inter", color="#f0f9ff", size=12),
+    title_font=dict(family="Inter", color="#f0f9ff", size=14),
     xaxis=dict(
-        gridcolor="rgba(99,102,241,0.08)",
-        linecolor="rgba(99,102,241,0.15)",
-        tickfont=dict(color="#64748b", size=11),
+        gridcolor="rgba(6,182,212,0.07)",
+        linecolor="rgba(6,182,212,0.12)",
+        tickfont=dict(color="#475569", size=11),
         title_font=dict(color="#94a3b8"),
         zeroline=False,
     ),
     yaxis=dict(
-        gridcolor="rgba(99,102,241,0.08)",
-        linecolor="rgba(99,102,241,0.15)",
-        tickfont=dict(color="#64748b", size=11),
+        gridcolor="rgba(6,182,212,0.07)",
+        linecolor="rgba(6,182,212,0.12)",
+        tickfont=dict(color="#475569", size=11),
         title_font=dict(color="#94a3b8"),
         zeroline=False,
     ),
     legend=dict(
-        bgcolor="rgba(15,14,30,0.7)",
-        bordercolor="rgba(99,102,241,0.2)",
+        bgcolor="rgba(2,10,28,0.8)",
+        bordercolor="rgba(6,182,212,0.2)",
         borderwidth=1,
         font=dict(color="#94a3b8", size=11),
     ),
     hoverlabel=dict(
-        bgcolor="rgba(20,18,40,0.95)",
-        bordercolor="rgba(99,102,241,0.4)",
-        font=dict(family="Inter", color="#e2e8f0", size=12),
+        bgcolor="rgba(2,10,28,0.95)",
+        bordercolor="rgba(6,182,212,0.4)",
+        font=dict(family="Inter", color="#f0f9ff", size=12),
     ),
     margin=dict(l=10, r=10, t=40, b=10),
 )
@@ -868,18 +868,18 @@ def auth_page():
     /* Animated mesh background */
     .auth-bg {
         position: fixed; inset: 0; z-index: 0; overflow: hidden;
-        background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.12) 0%, transparent 50%),
-                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.10) 0%, transparent 50%),
-                    radial-gradient(ellipse at 60% 80%, rgba(139,92,246,0.10) 0%, transparent 50%),
-                    #07060f;
+        background: radial-gradient(ellipse at 20% 50%, rgba(6,182,212,0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(34,211,238,0.06) 0%, transparent 50%),
+                    radial-gradient(ellipse at 60% 80%, rgba(14,116,144,0.07) 0%, transparent 50%),
+                    #020617;
     }
     .auth-bg .orb {
         position: absolute; border-radius: 50%;
         filter: blur(60px); opacity: 0.5; animation: floatY 7s ease-in-out infinite;
     }
-    .orb1 { width:320px; height:320px; background:rgba(99,102,241,0.25); top:-80px; left:-80px; animation-delay:0s; }
-    .orb2 { width:240px; height:240px; background:rgba(6,182,212,0.20); bottom:-60px; right:-60px; animation-delay:-3s; }
-    .orb3 { width:180px; height:180px; background:rgba(139,92,246,0.18); top:50%; left:50%; animation-delay:-5s; }
+    .orb1 { width:320px; height:320px; background:rgba(6,182,212,0.15); top:-80px; left:-80px; animation-delay:0s; }
+    .orb2 { width:240px; height:240px; background:rgba(14,116,144,0.12); bottom:-60px; right:-60px; animation-delay:-3s; }
+    .orb3 { width:180px; height:180px; background:rgba(34,211,238,0.10); top:50%; left:50%; animation-delay:-5s; }
     /* Left branding panel */
     .auth-left {
         display: flex; flex-direction: column;
@@ -890,10 +890,10 @@ def auth_page():
     .auth-logo {
         font-family: 'Orbitron', sans-serif;
         font-weight: 900; font-size: 3rem; letter-spacing: 6px;
-        background: linear-gradient(135deg, #6366f1 0%, #06b6d4 50%, #8b5cf6 100%);
+        background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 50%, #0891b2 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         background-clip: text;
-        filter: drop-shadow(0 0 24px rgba(99,102,241,0.5));
+        filter: drop-shadow(0 0 24px rgba(6,182,212,0.5));
         margin-bottom: 0.6rem; line-height: 1;
     }
     .auth-tagline {
@@ -906,7 +906,7 @@ def auth_page():
     }
     .auth-feature-icon {
         width: 38px; height: 38px; border-radius: 10px;
-        background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+        background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25);
         display: flex; align-items: center; justify-content: center;
         font-size: 1.1rem; flex-shrink: 0;
     }
@@ -969,9 +969,9 @@ def auth_page():
             <div style="text-align:center; margin-bottom:1.8rem;">
                 <div style="
                     width:56px; height:56px; border-radius:16px; margin:0 auto 1rem;
-                    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                    background:linear-gradient(135deg,#06b6d4,#0891b2);
                     display:flex; align-items:center; justify-content:center;
-                    font-size:1.6rem; box-shadow:0 8px 24px rgba(99,102,241,0.4);
+                    font-size:1.6rem; box-shadow:0 8px 24px rgba(6,182,212,0.4);
                 ">🔐</div>
                 <h3 style="margin:0;color:#e2e8f0;font-size:1.4rem;font-weight:700;">Welcome Back</h3>
                 <p style="color:#64748b;font-size:0.85rem;margin:0.3rem 0 0;">Sign in to your account</p>
@@ -1001,7 +1001,7 @@ def auth_page():
             <div style="text-align:center; margin-bottom:1.8rem;">
                 <div style="
                     width:56px; height:56px; border-radius:16px; margin:0 auto 1rem;
-                    background:linear-gradient(135deg,#06b6d4,#6366f1);
+                    background:linear-gradient(135deg,#06b6d4,#22d3ee);
                     display:flex; align-items:center; justify-content:center;
                     font-size:1.6rem; box-shadow:0 8px 24px rgba(6,182,212,0.4);
                 ">✨</div>
@@ -1045,29 +1045,29 @@ def main_dashboard():
         <div style="
             font-family:'Orbitron',sans-serif; font-weight:900;
             font-size:1.4rem; letter-spacing:4px;
-            background:linear-gradient(135deg,#6366f1,#06b6d4,#8b5cf6);
+            background:linear-gradient(135deg,#06b6d4,#22d3ee,#0891b2);
             -webkit-background-clip:text; -webkit-text-fill-color:transparent;
             background-clip:text; margin-bottom:1rem; text-align:center;
         ">TRAQIFY</div>
         <div style="
             display:flex; align-items:center; gap:0.7rem;
-            background:rgba(99,102,241,0.08);
-            border:1px solid rgba(99,102,241,0.2);
+            background:rgba(6,182,212,0.06);
+            border:1px solid rgba(6,182,212,0.15);
             border-radius:14px; padding:0.6rem 0.9rem;
         ">
             <div style="
                 width:36px; height:36px; border-radius:10px; flex-shrink:0;
-                background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                background:linear-gradient(135deg,#06b6d4,#0891b2);
                 display:flex; align-items:center; justify-content:center;
                 font-size:1rem; font-weight:700; color:white;
             ">{_initial}</div>
             <div>
-                <div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">@{_uname}</div>
-                <div style="color:#6366f1;font-size:0.72rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;">User</div>
+                <div style="color:#f0f9ff;font-weight:600;font-size:0.85rem;">@{_uname}</div>
+                <div style="color:#06b6d4;font-size:0.72rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;">User</div>
             </div>
         </div>
     </div>
-    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.3),transparent);margin:0.4rem 0;"></div>
+    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(6,182,212,0.2),transparent);margin:0.4rem 0;"></div>
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Logout", use_container_width=True):
@@ -1129,36 +1129,36 @@ def main_dashboard():
         if not _ob_dismissed:
             st.markdown("""
             <div style="
-                background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));
-                border:1px solid rgba(99,102,241,0.3); border-radius:18px;
+                background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(34,211,238,0.04));
+                border:1px solid rgba(6,182,212,0.2); border-radius:18px;
                 padding:1.6rem 2rem; margin-bottom:1.4rem;
                 animation:fadeInDown 0.6s ease both; position:relative;
             ">
                 <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;">
                     <div style="
                         width:48px;height:48px;border-radius:14px;flex-shrink:0;
-                        background:linear-gradient(135deg,#6366f1,#06b6d4);
+                        background:linear-gradient(135deg,#06b6d4,#0891b2);
                         display:flex;align-items:center;justify-content:center;font-size:1.4rem;
                     ">👋</div>
                     <div>
-                        <div style="color:#e2e8f0;font-weight:700;font-size:1rem;">Welcome to Traqify!</div>
+                        <div style="color:#f0f9ff;font-weight:700;font-size:1rem;">Welcome to Traqify!</div>
                         <div style="color:#94a3b8;font-size:0.83rem;">Get started in 3 easy steps</div>
                     </div>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem;">
-                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
+                    <div style="background:rgba(2,10,28,0.7);border:1px solid rgba(6,182,212,0.15);border-radius:12px;padding:1rem;">
                         <div style="font-size:1.4rem;margin-bottom:0.4rem;">📋</div>
-                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 1</div>
+                        <div style="color:#67e8f9;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 1</div>
                         <div style="color:#94a3b8;font-size:0.8rem;">Download the Upload Template from the sidebar</div>
                     </div>
-                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
-                        <div style="font-size:1.4rem;margin-bottom:0.4rem;">�</div>
-                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 2</div>
+                    <div style="background:rgba(2,10,28,0.7);border:1px solid rgba(6,182,212,0.15);border-radius:12px;padding:1rem;">
+                        <div style="font-size:1.4rem;margin-bottom:0.4rem;">📊</div>
+                        <div style="color:#67e8f9;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 2</div>
                         <div style="color:#94a3b8;font-size:0.8rem;">Fill in your data and upload it via Excel or CSV</div>
                     </div>
-                    <div style="background:rgba(15,14,30,0.6);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:1rem;">
+                    <div style="background:rgba(2,10,28,0.7);border:1px solid rgba(6,182,212,0.15);border-radius:12px;padding:1rem;">
                         <div style="font-size:1.4rem;margin-bottom:0.4rem;">🚀</div>
-                        <div style="color:#a5b4fc;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 3</div>
+                        <div style="color:#67e8f9;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Step 3</div>
                         <div style="color:#94a3b8;font-size:0.8rem;">Explore analytics, forecasts and AI insights</div>
                     </div>
                 </div>
@@ -1170,25 +1170,25 @@ def main_dashboard():
         # ── Styled upload drop zone ────────────────────────────────────
         st.markdown("""
         <div style="
-            border: 2px dashed rgba(99,102,241,0.4); border-radius: 20px;
+            border: 2px dashed rgba(6,182,212,0.3); border-radius: 20px;
             padding: 3.5rem 2rem; text-align: center;
-            background: rgba(99,102,241,0.03);
+            background: rgba(6,182,212,0.02);
             animation: fadeInUp 0.6s ease both;
             transition: border-color 0.3s, background 0.3s;
         ">
-            <div style="font-size:3.5rem;margin-bottom:1rem;filter:drop-shadow(0 0 16px rgba(99,102,241,0.4));">📂</div>
-            <h3 style="color:#a5b4fc;margin:0 0 0.4rem;font-size:1.2rem;font-weight:700;">No data loaded yet</h3>
+            <div style="font-size:3.5rem;margin-bottom:1rem;filter:drop-shadow(0 0 16px rgba(6,182,212,0.4));">📂</div>
+            <h3 style="color:#67e8f9;margin:0 0 0.4rem;font-size:1.2rem;font-weight:700;">No data loaded yet</h3>
             <p style="color:#64748b;margin:0;font-size:0.88rem;max-width:340px;margin:0 auto;">
                 Upload your <strong style="color:#94a3b8;">Excel (.xlsx)</strong> or
                 <strong style="color:#94a3b8;">CSV files</strong> using the sidebar panel to unlock the full dashboard.
             </p>
             <div style="margin-top:1.4rem;display:flex;justify-content:center;gap:0.6rem;flex-wrap:wrap;">
-                <span style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);
-                    color:#a5b4fc;padding:4px 12px;border-radius:20px;font-size:0.78rem;">📊 Revenue Analytics</span>
+                <span style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);
+                    color:#67e8f9;padding:4px 12px;border-radius:20px;font-size:0.78rem;">📊 Revenue Analytics</span>
                 <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);
                     color:#67e8f9;padding:4px 12px;border-radius:20px;font-size:0.78rem;">🚚 Shipment Tracking</span>
-                <span style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);
-                    color:#c4b5fd;padding:4px 12px;border-radius:20px;font-size:0.78rem;">🤖 AI Insights</span>
+                <span style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);
+                    color:#67e8f9;padding:4px 12px;border-radius:20px;font-size:0.78rem;">🤖 AI Insights</span>
                 <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);
                     color:#86efac;padding:4px 12px;border-radius:20px;font-size:0.78rem;">📦 Inventory Alerts</span>
             </div>
@@ -1240,9 +1240,9 @@ def main_dashboard():
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 4px 2px;
         }}
         .kpi-card {{
-            background: rgba(20,18,40,0.85);
+            background: rgba(2,10,28,0.9);
             backdrop-filter: blur(16px);
-            border: 1px solid rgba(99,102,241,0.25);
+            border: 1px solid rgba(6,182,212,0.18);
             border-radius: 18px; padding: 1.3rem 1.5rem;
             position: relative; overflow: hidden;
             transition: transform 0.28s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.28s ease;
@@ -1250,15 +1250,15 @@ def main_dashboard():
         }}
         .kpi-card::before {{
             content:''; position:absolute; inset:0;
-            background: linear-gradient(135deg, rgba(99,102,241,0.07) 0%, transparent 60%);
+            background: linear-gradient(135deg, rgba(6,182,212,0.05) 0%, transparent 60%);
             pointer-events:none;
         }}
         .kpi-card:hover {{
             transform: translateY(-7px) scale(1.03);
-            box-shadow: 0 16px 40px rgba(99,102,241,0.3), 0 0 0 1px rgba(99,102,241,0.5);
+            box-shadow: 0 16px 40px rgba(6,182,212,0.2), 0 0 0 1px rgba(6,182,212,0.4);
         }}
         .kpi-label {{
-            color: #a5b4fc; font-size: 0.72rem; font-weight: 600;
+            color: #67e8f9; font-size: 0.72rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem;
         }}
         .kpi-value {{
@@ -1339,10 +1339,10 @@ def main_dashboard():
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { background: transparent; font-family: 'Inter', sans-serif; }
             #display {
-                background: rgba(15,14,23,0.9);
-                border: 1px solid rgba(99,102,241,0.4);
+                background: rgba(2,6,23,0.95);
+                border: 1px solid rgba(6,182,212,0.3);
                 border-radius: 10px;
-                color: #e2e8f0;
+                color: #f0f9ff;
                 font-size: 1.5rem;
                 font-weight: 700;
                 text-align: right;
@@ -1358,20 +1358,20 @@ def main_dashboard():
                 gap: 5px;
             }
             button {
-                background: linear-gradient(135deg, #1e1b4b, #312e81);
-                border: 1px solid rgba(99,102,241,0.25);
+                background: linear-gradient(135deg, #03142e, #020f1f);
+                border: 1px solid rgba(6,182,212,0.2);
                 border-radius: 8px;
-                color: #e2e8f0;
+                color: #f0f9ff;
                 font-size: 1rem;
                 font-weight: 600;
                 padding: 10px 0;
                 cursor: pointer;
                 transition: background 0.15s, transform 0.1s;
             }
-            button:hover { background: linear-gradient(135deg,#4f46e5,#7c3aed); }
+            button:hover { background: linear-gradient(135deg,#0891b2,#06b6d4); }
             button:active { transform: scale(0.93); }
-            .btn-op  { color: #a5b4fc; }
-            .btn-eq  { background: linear-gradient(135deg,#6366f1,#8b5cf6) !important; color: #fff; }
+            .btn-op  { color: #67e8f9; }
+            .btn-eq  { background: linear-gradient(135deg,#06b6d4,#0891b2) !important; color: #fff; }
             .btn-clr { color: #f87171; }
         </style>
         <div id="display">0</div>
@@ -1509,13 +1509,13 @@ def main_dashboard():
     st.sidebar.markdown(f"""
     <div style="
         margin-top: 2rem; padding: 0.9rem 1rem;
-        border-top: 1px solid rgba(99,102,241,0.15);
+        border-top: 1px solid rgba(6,182,212,0.12);
         text-align: center;
     ">
         <div style="
             font-family:'Orbitron',sans-serif; font-size:0.65rem;
             letter-spacing:3px; font-weight:700;
-            background:linear-gradient(135deg,#6366f1,#06b6d4);
+            background:linear-gradient(135deg,#06b6d4,#22d3ee);
             -webkit-background-clip:text; -webkit-text-fill-color:transparent;
             background-clip:text; margin-bottom:0.4rem;
         ">TRAQIFY</div>
@@ -1548,7 +1548,7 @@ def main_dashboard():
         fig_bar = px.bar(
             monthly, x="month", y="revenue",
             color="revenue",
-            color_continuous_scale=["#4f46e5","#06b6d4","#8b5cf6"],
+            color_continuous_scale=["#0891b2","#06b6d4","#22d3ee"],
             template="plotly_dark",
             labels={"month":"Month","revenue":"Revenue ($)"},
         )
@@ -1562,7 +1562,7 @@ def main_dashboard():
             fc_df = forecast_revenue(sales_df, periods=forecast_periods)
             fig_fc = px.line(
                 fc_df, x="month_dt", y="revenue", color="type",
-                color_discrete_map={"Actual": "#6366f1", "Forecast": "#06b6d4"},
+                color_discrete_map={"Actual": "#06b6d4", "Forecast": "#22d3ee"},
                 markers=True, template="plotly_dark",
                 labels={"month_dt": "Month", "revenue": "Revenue ($)", "type": ""},
             )
@@ -1686,7 +1686,7 @@ def main_dashboard():
             delay_hist = px.histogram(
                 shipments_df[shipments_df["delay_days"].notna()],
                 x="delay_days", nbins=20,
-                color_discrete_sequence=["#6366f1"],
+                color_discrete_sequence=["#06b6d4"],
                 template="plotly_dark", title="Delay Days Distribution",
                 labels={"delay_days":"Delay (days)"},
             )
@@ -2375,20 +2375,20 @@ def main_dashboard():
         font-size: 1.25rem; transition: transform 0.22s cubic-bezier(.175,.885,.32,1.275), box-shadow 0.22s;
     }
     .fab-chat {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        box-shadow: 0 8px 24px rgba(99,102,241,0.55);
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
+        box-shadow: 0 8px 24px rgba(6,182,212,0.5);
     }
     .fab-top {
-        background: rgba(15,14,30,0.9);
-        border: 1px solid rgba(99,102,241,0.3) !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        background: rgba(2,10,28,0.95);
+        border: 1px solid rgba(6,182,212,0.25) !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
     }
     .fab-btn:hover { transform: scale(1.13) translateY(-2px); }
     .fab-btn:active { transform: scale(0.95); }
     .fab-label {
         position: absolute; right: 58px;
-        background: rgba(20,18,40,0.95); border: 1px solid rgba(99,102,241,0.3);
-        color: #e2e8f0; font-size: 0.75rem; font-weight: 600;
+        background: rgba(2,10,28,0.95); border: 1px solid rgba(6,182,212,0.25);
+        color: #f0f9ff; font-size: 0.75rem; font-weight: 600;
         padding: 4px 10px; border-radius: 8px; white-space: nowrap;
         opacity: 0; pointer-events: none;
         transition: opacity 0.2s ease;
@@ -2430,11 +2430,11 @@ def admin_dashboard():
     # ── Sidebar ──
     st.sidebar.markdown("""
     <div style="text-align:center;padding:1rem 0 0.5rem 0;">
-        <div style="font-size:3rem;filter:drop-shadow(0 0 8px rgba(99,102,241,0.6));">⚙️</div>
-        <h3 style="color:#a5b4fc;margin:0.4rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
-        <p style="color:#6366f1;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Admin Panel</p>
+        <div style="font-size:3rem;filter:drop-shadow(0 0 8px rgba(6,182,212,0.5));">⚙️</div>
+        <h3 style="color:#67e8f9;margin:0.4rem 0;font-size:1.4rem;font-weight:800;letter-spacing:1px;">Traqify</h3>
+        <p style="color:#06b6d4;font-size:0.78rem;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Admin Panel</p>
     </div>
-    <hr style="border-color:rgba(99,102,241,0.3);margin:0.8rem 0;">
+    <hr style="border-color:rgba(6,182,212,0.2);margin:0.8rem 0;">
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("�� Logout", use_container_width=True):
