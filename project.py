@@ -1750,15 +1750,15 @@ def main_dashboard():
                 country_counts, locations="location",
                 locationmode="country names",
                 color="count",
-                color_continuous_scale=["#1e1b4b","#6366f1","#06b6d4"],
+                color_continuous_scale=["#020617","#06b6d4","#22d3ee"],
                 template="plotly_dark",
                 title=f"Supplier Distribution by {col_map} (from {source_name})",
             )
+            fig_map.update_layout(**CHART_LAYOUT)
             fig_map.update_layout(
-                **CHART_LAYOUT,
-                geo=dict(bgcolor="rgba(10,9,20,0.8)", showframe=False,
-                         showcoastlines=True, coastlinecolor="rgba(99,102,241,0.2)",
-                         landcolor="#0f0e1f", oceancolor="#07060f", showocean=True),
+                geo=dict(bgcolor="rgba(2,6,23,0.9)", showframe=False,
+                         showcoastlines=True, coastlinecolor="rgba(6,182,212,0.15)",
+                         landcolor="#03142e", oceancolor="#020617", showocean=True),
                 margin=dict(l=0, r=0, t=40, b=0),
             )
             st.plotly_chart(fig_map, use_container_width=True)
