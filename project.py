@@ -1005,26 +1005,154 @@ def auth_page():
                     display:flex; align-items:center; justify-content:center;
                     font-size:1.6rem; box-shadow:0 8px 24px rgba(6,182,212,0.4);
                 ">✨</div>
-                <h3 style="margin:0;color:#e2e8f0;font-size:1.4rem;font-weight:700;">Create Account</h3>
+                <h3 style="margin:0;color:#f0f9ff;font-size:1.4rem;font-weight:700;">Create Account</h3>
                 <p style="color:#64748b;font-size:0.85rem;margin:0.3rem 0 0;">Join the platform today</p>
             </div>""", unsafe_allow_html=True)
-            with st.form("signup"):
-                username = st.text_input("Username", placeholder="Choose a username")
-                password = st.text_input("Password", type="password", placeholder="Create a password")
-                st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
-                if st.form_submit_button("Create Account →", use_container_width=True):
-                    with st.spinner("Creating account..."):
-                        conn   = mysql.connector.connect(**DB_CONFIG)
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
-                        exists = cursor.fetchone()
-                        if exists:
-                            st.error("⚠️ Username already taken")
+
+            # ── OTP state ────────────────────────────────────────────
+            otp_sent     = st.session_state.get("otp_sent", False)
+            otp_verified = st.session_state.get("otp_verified", False)
+            pending_user = st.session_state.get("pending_signup", {})
+
+            if not otp_sent:
+                # Step 1 — collect details and send OTP
+                with st.form("signup"):
+                    reg_username = st.text_input("Username", placeholder="Choose a username")
+                    reg_email    = st.text_input("Email", placeholder="you@example.com")
+                    reg_password = st.text_input("Password", type="password", placeholder="Create a password")
+                    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+                    if st.form_submit_button("Send OTP →", use_container_width=True):
+                        if not reg_username.strip():
+                            st.error("Enter a username.")
+                        elif not reg_email.strip() or "@" not in reg_email:
+                            st.error("Enter a valid email address.")
+                        elif not reg_password.strip():
+                            st.error("Enter a password.")
                         else:
-                            cursor.execute("INSERT INTO users (username, password) VALUES (%s,%s)", (username, password))
-                            conn.commit()
-                            st.success("🎉 Account created! You can now sign in.")
-                        cursor.close(); conn.close()
+                            # Check username not taken
+                            try:
+                                conn_c = mysql.connector.connect(**DB_CONFIG)
+                                cur_c  = conn_c.cursor()
+                                cur_c.execute("SELECT id FROM users WHERE username=%s", (reg_username.strip(),))
+                                taken = cur_c.fetchone()
+                                cur_c.close(); conn_c.close()
+                            except Exception as e:
+                                taken = None
+                                st.error(f"DB error: {e}")
+
+                            if taken:
+                                st.error("⚠️ Username already taken.")
+                            else:
+                                import random
+                                _otp = f"{random.randint(100000, 999999)}"
+                                otp_body = f"""
+                                <p style="color:#94a3b8;">Your Traqify verification code is:</p>
+                                <div style="
+                                    font-family:'Orbitron',sans-serif;font-size:2.2rem;
+                                    font-weight:900;letter-spacing:8px;color:#06b6d4;
+                                    text-align:center;padding:1rem;
+                                    background:rgba(6,182,212,0.08);
+                                    border:1px solid rgba(6,182,212,0.25);
+                                    border-radius:12px;margin:1rem 0;
+                                ">{_otp}</div>
+                                <p style="color:#64748b;font-size:0.85rem;">
+                                    This code expires in 10 minutes.<br>
+                                    If you didn't request this, ignore this email.
+                                </p>"""
+                                sent = send_email(
+                                    reg_email.strip(),
+                                    "🔐 Your Traqify Verification Code",
+                                    email_template("Verify Your Account", otp_body),
+                                )
+                                if sent:
+                                    st.session_state.otp_sent      = True
+                                    st.session_state.otp_code      = _otp
+                                    st.session_state.otp_expiry    = time.time() + 600  # 10 min
+                                    st.session_state.pending_signup = {
+                                        "username": reg_username.strip(),
+                                        "email":    reg_email.strip(),
+                                        "password": reg_password.strip(),
+                                    }
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Could not send OTP. Check your email config in secrets.")
+
+            else:
+                # Step 2 — verify OTP
+                _uname_disp = pending_user.get("username", "")
+                _email_disp = pending_user.get("email", "")
+                st.markdown(f"""
+                <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);
+                    border-radius:14px;padding:1rem 1.2rem;margin-bottom:1.2rem;text-align:center;">
+                    <div style="font-size:1.5rem;margin-bottom:0.4rem;">📧</div>
+                    <div style="color:#f0f9ff;font-weight:600;font-size:0.9rem;">OTP sent to</div>
+                    <div style="color:#67e8f9;font-size:0.85rem;margin-top:2px;">{_email_disp}</div>
+                </div>""", unsafe_allow_html=True)
+
+                with st.form("otp_verify"):
+                    otp_input = st.text_input(
+                        "Enter 6-digit OTP",
+                        placeholder="_ _ _ _ _ _",
+                        max_chars=6,
+                    )
+                    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+                    if st.form_submit_button("✅ Verify & Create Account", use_container_width=True):
+                        if time.time() > st.session_state.get("otp_expiry", 0):
+                            st.error("⏰ OTP expired. Please restart signup.")
+                            st.session_state.otp_sent = False
+                            st.rerun()
+                        elif otp_input.strip() == st.session_state.get("otp_code", ""):
+                            # OTP correct — create account
+                            try:
+                                conn_r = mysql.connector.connect(**DB_CONFIG)
+                                cur_r  = conn_r.cursor()
+                                cur_r.execute(
+                                    "INSERT INTO users (username, password, email) VALUES (%s,%s,%s)",
+                                    (pending_user["username"], pending_user["password"], pending_user["email"]),
+                                )
+                                conn_r.commit(); cur_r.close(); conn_r.close()
+                                log_activity(pending_user["username"], "Account created (OTP verified)")
+                                # Clear OTP state
+                                for k in ["otp_sent","otp_code","otp_expiry","pending_signup"]:
+                                    st.session_state.pop(k, None)
+                                st.success("🎉 Account created! You can now sign in.")
+                                time.sleep(1)
+                                st.session_state.auth_mode = "login"
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error creating account: {e}")
+                        else:
+                            st.error("❌ Incorrect OTP. Try again.")
+
+                # Resend + cancel options
+                rc1, rc2 = st.columns(2)
+                with rc1:
+                    if st.button("🔄 Resend OTP", key="resend_otp", use_container_width=True):
+                        import random
+                        _otp2 = f"{random.randint(100000, 999999)}"
+                        otp_body2 = f"""
+                        <p style="color:#94a3b8;">Your new Traqify verification code is:</p>
+                        <div style="font-family:'Orbitron',sans-serif;font-size:2.2rem;
+                            font-weight:900;letter-spacing:8px;color:#06b6d4;text-align:center;
+                            padding:1rem;background:rgba(6,182,212,0.08);
+                            border:1px solid rgba(6,182,212,0.25);border-radius:12px;margin:1rem 0;"
+                        >{_otp2}</div>
+                        <p style="color:#64748b;font-size:0.85rem;">Expires in 10 minutes.</p>"""
+                        if send_email(
+                            pending_user["email"],
+                            "🔐 New Traqify OTP",
+                            email_template("New Verification Code", otp_body2),
+                        ):
+                            st.session_state.otp_code   = _otp2
+                            st.session_state.otp_expiry = time.time() + 600
+                            st.success("✅ New OTP sent!")
+                        else:
+                            st.error("Failed to resend OTP.")
+                with rc2:
+                    if st.button("← Back", key="cancel_otp", use_container_width=True):
+                        for k in ["otp_sent","otp_code","otp_expiry","pending_signup"]:
+                            st.session_state.pop(k, None)
+                        st.rerun()
 
         st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
         label = "Don't have an account? Sign Up →" if st.session_state.auth_mode == "login" else "Already have an account? Sign In →"
