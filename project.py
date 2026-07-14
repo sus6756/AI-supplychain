@@ -1140,6 +1140,15 @@ def main_dashboard():
                 data_loaded  = True
             st.toast("✅ Excel loaded!", icon="📊")
             log_activity(st.session_state.get("username", "?"), "Uploaded Excel file")
+            # ── Auto low-stock email ──────────────────────────────────
+            _auto_email = st.session_state.get("user_email", "")
+            if _auto_email and "stock_quantity" in products_df.columns and "reorder_level" in products_df.columns:
+                _auto_low = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                if not _auto_low.empty and not st.session_state.get("_auto_email_sent_excel"):
+                    if send_low_stock_alert(_auto_email, _auto_low):
+                        st.toast(f"📧 Low stock alert sent to {_auto_email}", icon="⚠️")
+                        log_activity(st.session_state.get("username","?"), f"Auto low-stock email → {_auto_email}")
+                    st.session_state["_auto_email_sent_excel"] = True
     else:
         p  = st.sidebar.file_uploader("📦 products.csv",  type=["csv"])
         s  = st.sidebar.file_uploader("💰 sales.csv",     type=["csv"])
@@ -1152,6 +1161,15 @@ def main_dashboard():
                 data_loaded  = True
             st.toast("✅ CSVs loaded!", icon="📁")
             log_activity(st.session_state.get("username", "?"), "Uploaded CSV files")
+            # ── Auto low-stock email ──────────────────────────────────
+            _auto_email = st.session_state.get("user_email", "")
+            if _auto_email and "stock_quantity" in products_df.columns and "reorder_level" in products_df.columns:
+                _auto_low = products_df[products_df["stock_quantity"] < products_df["reorder_level"]]
+                if not _auto_low.empty and not st.session_state.get("_auto_email_sent_csv"):
+                    if send_low_stock_alert(_auto_email, _auto_low):
+                        st.toast(f"📧 Low stock alert sent to {_auto_email}", icon="⚠️")
+                        log_activity(st.session_state.get("username","?"), f"Auto low-stock email → {_auto_email}")
+                    st.session_state["_auto_email_sent_csv"] = True
 
     if not data_loaded:
         # ── Onboarding banner ──────────────────────────────────────────
@@ -1732,6 +1750,75 @@ def main_dashboard():
             )
             delay_hist.update_layout(**CHART_LAYOUT)
             st.plotly_chart(delay_hist, use_container_width=True)
+
+        # ── Shipment Status Updater ───────────────────────────────────
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        st.markdown("#### ✏️ Update Shipment Status")
+        st.markdown("<p style='color:#94a3b8;font-size:0.85rem;'>Manually mark a shipment as Delivered or Cancelled. This updates the in-session data.</p>", unsafe_allow_html=True)
+
+        if "shipment_id" not in shipments_df.columns:
+            st.info("Need a shipment_id column to use the status updater.")
+        else:
+            if "manual_status" not in st.session_state:
+                st.session_state.manual_status = {}
+
+            upd_col1, upd_col2, upd_col3 = st.columns([2, 2, 1])
+            with upd_col1:
+                ship_ids = shipments_df["shipment_id"].astype(str).tolist()
+                selected_sid = st.selectbox("Select Shipment ID", ship_ids, key="upd_ship_id")
+            with upd_col2:
+                new_status = st.selectbox(
+                    "New Status",
+                    ["✅ Delivered", "❌ Cancelled", "🔄 In Transit", "⏳ Pending"],
+                    key="upd_ship_status",
+                )
+            with upd_col3:
+                st.markdown("<div style='height:1.8rem'></div>", unsafe_allow_html=True)
+                if st.button("💾 Apply", key="upd_ship_btn", use_container_width=True):
+                    st.session_state.manual_status[selected_sid] = new_status
+                    log_activity(
+                        st.session_state.get("username", "?"),
+                        f"Shipment {selected_sid} marked as {new_status}",
+                    )
+                    st.toast(f"Shipment {selected_sid} → {new_status}", icon="✅")
+
+            if st.session_state.manual_status:
+                st.markdown("##### Manual Status Overrides")
+                overrides_df = pd.DataFrame(
+                    [{"Shipment ID": k, "Status": v}
+                     for k, v in st.session_state.manual_status.items()]
+                )
+
+                # Color-code each status
+                def _status_badge(s):
+                    if "Delivered" in s:
+                        return f"<span style='background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3);padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;'>{s}</span>"
+                    if "Cancelled" in s:
+                        return f"<span style='background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;'>{s}</span>"
+                    if "Transit" in s:
+                        return f"<span style='background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid rgba(6,182,212,0.3);padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;'>{s}</span>"
+                    return f"<span style='background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;'>{s}</span>"
+
+                overrides_df["Status"] = overrides_df["Status"].apply(_status_badge)
+                st.write(overrides_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+
+                col_clr, col_exp = st.columns(2)
+                with col_clr:
+                    if st.button("🗑️ Clear All Overrides", key="clr_overrides"):
+                        st.session_state.manual_status = {}
+                        st.rerun()
+                with col_exp:
+                    raw_overrides = pd.DataFrame(
+                        [{"Shipment ID": k, "Status": v}
+                         for k, v in st.session_state.manual_status.items()]
+                    )
+                    st.download_button(
+                        "📥 Export Status CSV",
+                        data=raw_overrides.to_csv(index=False).encode(),
+                        file_name=f"shipment_status_{datetime.date.today()}.csv",
+                        mime="text/csv",
+                        key="exp_status_csv",
+                    )
 
     # ─────────────────────────────────────────────────────────────────
     # TAB 4 — SUPPLIER SCORECARD
