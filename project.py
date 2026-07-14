@@ -1088,6 +1088,36 @@ def main_dashboard():
     st.sidebar.markdown("---")
     option = st.sidebar.radio("📂 Upload Type", ["Excel", "CSV"])
 
+    # ── Currency Selector ─────────────────────────────────────────────
+    CURRENCIES = {
+        "USD 🇺🇸": ("$",   1.0),
+        "EUR 🇪🇺": ("€",   0.92),
+        "GBP 🇬🇧": ("£",   0.79),
+        "INR 🇮🇳": ("₹",  83.5),
+        "JPY 🇯🇵": ("¥", 149.0),
+        "AUD 🇦🇺": ("A$",  1.53),
+        "CAD 🇨🇦": ("C$",  1.36),
+        "SGD 🇸🇬": ("S$",  1.34),
+        "AED 🇦🇪": ("د.إ", 3.67),
+        "CNY 🇨🇳": ("¥",   7.24),
+    }
+    st.sidebar.markdown("### 💱 Currency")
+    _sel_currency = st.sidebar.selectbox(
+        "Display currency",
+        list(CURRENCIES.keys()),
+        index=0,
+        key="currency_select",
+        label_visibility="collapsed",
+    )
+    _cur_symbol, _cur_rate = CURRENCIES[_sel_currency]
+
+    def fmt_currency(value, decimals=0):
+        converted = value * _cur_rate
+        if decimals == 0:
+            return f"{_cur_symbol}{converted:,.0f}"
+        return f"{_cur_symbol}{converted:,.{decimals}f}"
+
+
     # ── Hero Banner ───────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-banner">
@@ -1231,6 +1261,8 @@ def main_dashboard():
 
     _rev_sign = "+" if rev_delta >= 0 else ""
     _rev_color = "#22c55e" if rev_delta >= 0 else "#ef4444"
+    _total_rev_disp  = fmt_currency(total_rev)
+    _rev_delta_disp  = fmt_currency(abs(rev_delta))
     stc.html(f"""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -1274,8 +1306,8 @@ def main_dashboard():
         <div class="kpi-card">
             <div class="kpi-icon">💰</div>
             <div class="kpi-label">Total Revenue</div>
-            <div class="kpi-value" id="kpi-rev">$0</div>
-            <div class="kpi-delta" style="color:{_rev_color}" id="kpi-delta">{_rev_sign}${abs(rev_delta):,.0f}</div>
+            <div class="kpi-value" id="kpi-rev">{_cur_symbol}0</div>
+            <div class="kpi-delta" style="color:{_rev_color}">{_rev_sign}{_rev_delta_disp}</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-icon">⚠️</div>
@@ -1310,10 +1342,10 @@ def main_dashboard():
             }}
             requestAnimationFrame(step);
         }}
-        animateCount(document.getElementById('kpi-rev'),   {int(total_rev)},    '$', '', 1200);
-        animateCount(document.getElementById('kpi-delay'), {delayed_count},      '',  '', 900);
-        animateCount(document.getElementById('kpi-stock'), {low_stock},          '',  '', 900);
-        animateCount(document.getElementById('kpi-prod'),  {product_count},      '',  '', 900);
+        animateCount(document.getElementById('kpi-rev'),   {int(total_rev * _cur_rate)}, '{_cur_symbol}', '', 1200);
+        animateCount(document.getElementById('kpi-delay'), {delayed_count},               '',              '', 900);
+        animateCount(document.getElementById('kpi-stock'), {low_stock},                   '',              '', 900);
+        animateCount(document.getElementById('kpi-prod'),  {product_count},               '',              '', 900);
     </script>
     """, height=160)
 
@@ -1527,7 +1559,7 @@ def main_dashboard():
     """, unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "📊 Revenue & Forecast",
         "📦 Inventory",
         "🚚 Shipments",
@@ -1536,6 +1568,7 @@ def main_dashboard():
         "🗿 SQL Console",
         "📧 Hub",
         "👤 Profile",
+        "🔬 Analytics",
     ])
 
     # ─────────────────────────────────────────────────────────────────
@@ -1545,33 +1578,40 @@ def main_dashboard():
         st.markdown("### 💰 Monthly Revenue Trends")
         sales_df["month"] = sales_df["sale_date"].dt.strftime("%Y-%m")
         monthly = sales_df.groupby("month")["revenue"].sum().reset_index()
+        monthly["revenue_converted"] = monthly["revenue"] * _cur_rate
         fig_bar = px.bar(
-            monthly, x="month", y="revenue",
-            color="revenue",
+            monthly, x="month", y="revenue_converted",
+            color="revenue_converted",
             color_continuous_scale=["#0891b2","#06b6d4","#22d3ee"],
             template="plotly_dark",
-            labels={"month":"Month","revenue":"Revenue ($)"},
+            labels={"month":"Month","revenue_converted":f"Revenue ({_cur_symbol})"},
         )
         fig_bar.update_layout(**CHART_LAYOUT)
-        fig_bar.update_traces(marker_line_width=0)
+        fig_bar.update_traces(
+            marker_line_width=0,
+            hovertemplate=f"<b>%{{x}}</b><br>Revenue: {_cur_symbol}%{{y:,.0f}}<extra></extra>",
+        )
         st.plotly_chart(fig_bar, use_container_width=True)
 
         st.markdown("### 🔮 Demand Forecast (Next 3 Months)")
         forecast_periods = st.slider("Forecast periods (months)", 1, 12, 3)
         try:
             fc_df = forecast_revenue(sales_df, periods=forecast_periods)
+            fc_df["revenue_converted"] = fc_df["revenue"] * _cur_rate
             fig_fc = px.line(
-                fc_df, x="month_dt", y="revenue", color="type",
+                fc_df, x="month_dt", y="revenue_converted", color="type",
                 color_discrete_map={"Actual": "#06b6d4", "Forecast": "#22d3ee"},
                 markers=True, template="plotly_dark",
-                labels={"month_dt": "Month", "revenue": "Revenue ($)", "type": ""},
+                labels={"month_dt": "Month", "revenue_converted": f"Revenue ({_cur_symbol})", "type": ""},
             )
             fig_fc.update_traces(line=dict(width=2.5))
             fig_fc.update_layout(**CHART_LAYOUT, showlegend=True)
             st.plotly_chart(fig_fc, use_container_width=True)
-            forecast_only = fc_df[fc_df["type"] == "Forecast"][["month_dt","revenue"]].copy()
-            forecast_only.columns = ["Month", "Forecasted Revenue ($)"]
-            forecast_only["Forecasted Revenue ($)"] = forecast_only["Forecasted Revenue ($)"].map("${:,.0f}".format)
+            forecast_only = fc_df[fc_df["type"] == "Forecast"][["month_dt","revenue_converted"]].copy()
+            forecast_only.columns = ["Month", f"Forecasted Revenue ({_cur_symbol})"]
+            forecast_only[f"Forecasted Revenue ({_cur_symbol})"] = forecast_only[f"Forecasted Revenue ({_cur_symbol})"].map(
+                lambda v: fmt_currency(v / _cur_rate)
+            )
             st.dataframe(forecast_only, use_container_width=True, hide_index=True)
         except Exception as e:
             st.warning(f"Forecast unavailable: {e}")
@@ -2358,6 +2398,356 @@ def main_dashboard():
                     <span style="color:#a5b4fc;font-size:0.85rem;">{_cur_email or "—"}</span>
                 </div>
             </div>""", unsafe_allow_html=True)
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────
+    # TAB 9 — ANALYTICS
+    # ─────────────────────────────────────────────────────────────────
+    with tab9:
+        st.markdown("### 🔬 Advanced Analytics")
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+        an1, an2, an3, an4, an5 = st.tabs([
+            "💱 Currency",
+            "⭐ Profitability",
+            "📅 Seasonal Trends",
+            "🚛 Supplier Costs",
+            "💀 Dead Stock",
+        ])
+
+        # ── AN1: Currency Overview ───────────────────────────────────
+        with an1:
+            st.markdown("#### 💱 Revenue in Selected Currency")
+            st.markdown(f"<p style='color:#94a3b8;'>All revenue figures converted from <strong style='color:#67e8f9;'>USD</strong> → <strong style='color:#67e8f9;'>{_sel_currency}</strong> at rate <strong style='color:#f0f9ff;'>{_cur_rate}</strong></p>", unsafe_allow_html=True)
+
+            sales_df["month"] = sales_df["sale_date"].dt.strftime("%Y-%m")
+            monthly_cur = sales_df.groupby("month")["revenue"].sum().reset_index()
+            monthly_cur["converted"] = monthly_cur["revenue"] * _cur_rate
+
+            m1, m2, m3 = st.columns(3)
+            m1.metric(f"Total Revenue ({_cur_symbol})", fmt_currency(monthly_cur["revenue"].sum()))
+            m2.metric(f"Avg Monthly ({_cur_symbol})",   fmt_currency(monthly_cur["revenue"].mean()))
+            m3.metric(f"Peak Month ({_cur_symbol})",    fmt_currency(monthly_cur["revenue"].max()))
+
+            fig_cur = px.bar(
+                monthly_cur, x="month", y="converted",
+                color="converted",
+                color_continuous_scale=["#0891b2","#06b6d4","#22d3ee"],
+                template="plotly_dark",
+                title=f"Monthly Revenue — {_sel_currency}",
+                labels={"month": "Month", "converted": f"Revenue ({_cur_symbol})"},
+            )
+            fig_cur.update_layout(**CHART_LAYOUT)
+            fig_cur.update_traces(
+                marker_line_width=0,
+                hovertemplate=f"<b>%{{x}}</b><br>{_cur_symbol}%{{y:,.0f}}<extra></extra>",
+            )
+            st.plotly_chart(fig_cur, use_container_width=True)
+
+            monthly_cur["revenue_usd"]       = monthly_cur["revenue"].map("${:,.0f}".format)
+            monthly_cur[f"revenue_{_cur_symbol}"] = monthly_cur["converted"].map(lambda v: fmt_currency(v / _cur_rate))
+            st.dataframe(
+                monthly_cur[["month","revenue_usd", f"revenue_{_cur_symbol}"]].rename(columns={
+                    "month": "Month",
+                    "revenue_usd": "Revenue (USD)",
+                    f"revenue_{_cur_symbol}": f"Revenue ({_cur_symbol})",
+                }),
+                use_container_width=True, hide_index=True
+            )
+
+        # ── AN2: Product Profitability Score ────────────────────────
+        with an2:
+            st.markdown("#### ⭐ Product Profitability Score")
+            st.markdown("<p style='color:#94a3b8;'>Combines unit price, sales volume, and reorder frequency into a single 0–100 score per product.</p>", unsafe_allow_html=True)
+
+            required_cols = {"product_id", "unit_price", "stock_quantity", "reorder_level"}
+            sales_req     = {"product_id", "quantity_sold", "revenue"}
+
+            if not required_cols.issubset(products_df.columns):
+                st.info(f"Need columns: {required_cols} in products data.")
+            elif not sales_req.issubset(sales_df.columns):
+                st.info(f"Need columns: {sales_req} in sales data.")
+            else:
+                # Aggregate sales per product
+                sales_agg = sales_df.groupby("product_id").agg(
+                    total_qty=("quantity_sold", "sum"),
+                    total_rev=("revenue",       "sum"),
+                    sale_count=("quantity_sold", "count"),
+                ).reset_index()
+
+                prof_df = products_df.merge(sales_agg, on="product_id", how="left").fillna(0)
+                prof_df["reorder_freq"] = (prof_df["reorder_level"] / prof_df["stock_quantity"].replace(0, 1))
+
+                # Normalise each component 0-1 then scale to 100
+                def _norm(s):
+                    mn, mx = s.min(), s.max()
+                    return (s - mn) / (mx - mn + 1e-9)
+
+                prof_df["score_price"]  = _norm(prof_df["unit_price"])
+                prof_df["score_vol"]    = _norm(prof_df["total_qty"])
+                prof_df["score_reorder"]= _norm(prof_df["reorder_freq"])
+                prof_df["profit_score"] = (
+                    prof_df["score_price"]   * 0.4 +
+                    prof_df["score_vol"]     * 0.4 +
+                    prof_df["score_reorder"] * 0.2
+                ) * 100
+                prof_df["profit_score"] = prof_df["profit_score"].round(1)
+                prof_df["tier"] = pd.cut(
+                    prof_df["profit_score"],
+                    bins=[0, 33, 66, 100],
+                    labels=["🔴 Low", "🟡 Mid", "🟢 High"],
+                    include_lowest=True,
+                )
+
+                # Summary metrics
+                p1, p2, p3 = st.columns(3)
+                p1.metric("🟢 High Performers", len(prof_df[prof_df["tier"] == "🟢 High"]))
+                p2.metric("🟡 Mid Performers",  len(prof_df[prof_df["tier"] == "🟡 Mid"]))
+                p3.metric("🔴 Low Performers",  len(prof_df[prof_df["tier"] == "🔴 Low"]))
+
+                name_col = "product_name" if "product_name" in prof_df.columns else "product_id"
+                fig_prof = px.bar(
+                    prof_df.sort_values("profit_score", ascending=False).head(20),
+                    x=name_col, y="profit_score",
+                    color="profit_score",
+                    color_continuous_scale=["#ef4444","#f59e0b","#22c55e"],
+                    range_color=[0, 100],
+                    template="plotly_dark",
+                    title="Product Profitability Score (Top 20)",
+                    labels={name_col: "Product", "profit_score": "Score (0–100)"},
+                    text="profit_score",
+                )
+                fig_prof.update_traces(texttemplate="%{text}", textposition="outside")
+                fig_prof.update_layout(**CHART_LAYOUT)
+                fig_prof.update_layout(margin=dict(l=10, r=10, t=40, b=80))
+                st.plotly_chart(fig_prof, use_container_width=True)
+
+                disp_cols = [name_col, "unit_price", "total_qty", "total_rev", "profit_score", "tier"]
+                disp_cols = [c for c in disp_cols if c in prof_df.columns]
+                st.dataframe(
+                    prof_df[disp_cols].sort_values("profit_score", ascending=False),
+                    use_container_width=True, hide_index=True
+                )
+                st.download_button(
+                    "📥 Export Profitability CSV",
+                    data=prof_df[disp_cols].to_csv(index=False).encode(),
+                    file_name=f"profitability_{datetime.date.today()}.csv",
+                    mime="text/csv",
+                )
+
+        # ── AN3: Seasonal Trend Detection ───────────────────────────
+        with an3:
+            st.markdown("#### 📅 Seasonal Revenue Trends")
+            st.markdown("<p style='color:#94a3b8;'>Identifies which months consistently spike or drop across all years in your data.</p>", unsafe_allow_html=True)
+
+            if "sale_date" not in sales_df.columns:
+                st.info("Need a sale_date column in sales data.")
+            else:
+                seas_df = sales_df.copy()
+                seas_df["year"]  = seas_df["sale_date"].dt.year
+                seas_df["month_num"] = seas_df["sale_date"].dt.month
+                seas_df["month_name"] = seas_df["sale_date"].dt.strftime("%b")
+
+                monthly_seas = seas_df.groupby(["year","month_num","month_name"])["revenue"].sum().reset_index()
+                monthly_seas["revenue_conv"] = monthly_seas["revenue"] * _cur_rate
+
+                # Average revenue per calendar month across all years
+                avg_by_month = monthly_seas.groupby(["month_num","month_name"])["revenue"].mean().reset_index()
+                avg_by_month = avg_by_month.sort_values("month_num")
+                avg_by_month["revenue_conv"] = avg_by_month["revenue"] * _cur_rate
+
+                overall_mean = avg_by_month["revenue"].mean()
+                avg_by_month["deviation_pct"] = ((avg_by_month["revenue"] - overall_mean) / overall_mean * 100).round(1)
+                avg_by_month["type"] = avg_by_month["deviation_pct"].apply(
+                    lambda x: "🔥 Peak" if x > 10 else ("❄️ Slow" if x < -10 else "📊 Normal")
+                )
+
+                # Heatmap: year × month
+                if monthly_seas["year"].nunique() > 1:
+                    pivot = monthly_seas.pivot_table(
+                        index="year", columns="month_name", values="revenue_conv", aggfunc="sum"
+                    )
+                    month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+                    pivot = pivot.reindex(columns=[m for m in month_order if m in pivot.columns])
+
+                    fig_heat = go.Figure(data=go.Heatmap(
+                        z=pivot.values,
+                        x=pivot.columns.tolist(),
+                        y=pivot.index.tolist(),
+                        colorscale=[[0,"#020617"],[0.5,"#0891b2"],[1,"#22d3ee"]],
+                        hovertemplate=f"<b>%{{x}} %{{y}}</b><br>Revenue: {_cur_symbol}%{{z:,.0f}}<extra></extra>",
+                    ))
+                    fig_heat.update_layout(
+                        **CHART_LAYOUT,
+                        title="Revenue Heatmap — Year × Month",
+                    )
+                    st.plotly_chart(fig_heat, use_container_width=True)
+
+                # Bar chart: avg per month with deviation coloring
+                color_map = {"🔥 Peak": "#22c55e", "❄️ Slow": "#ef4444", "📊 Normal": "#06b6d4"}
+                fig_seas = px.bar(
+                    avg_by_month, x="month_name", y="revenue_conv",
+                    color="type", color_discrete_map=color_map,
+                    template="plotly_dark",
+                    title="Average Revenue by Month (all years)",
+                    labels={"month_name": "Month", "revenue_conv": f"Avg Revenue ({_cur_symbol})", "type": "Status"},
+                    text="deviation_pct",
+                )
+                fig_seas.update_traces(texttemplate="%{text:+.1f}%", textposition="outside")
+                fig_seas.update_layout(**CHART_LAYOUT, showlegend=True)
+                st.plotly_chart(fig_seas, use_container_width=True)
+
+                s1, s2, s3 = st.columns(3)
+                peak = avg_by_month.loc[avg_by_month["revenue"].idxmax(), "month_name"]
+                slow = avg_by_month.loc[avg_by_month["revenue"].idxmin(), "month_name"]
+                s1.metric("🔥 Best Month",  peak)
+                s2.metric("❄️ Slowest Month", slow)
+                s3.metric("📊 Years of Data", monthly_seas["year"].nunique())
+
+                st.dataframe(
+                    avg_by_month[["month_name","revenue_conv","deviation_pct","type"]].rename(columns={
+                        "month_name": "Month",
+                        "revenue_conv": f"Avg Revenue ({_cur_symbol})",
+                        "deviation_pct": "vs Average (%)",
+                        "type": "Status",
+                    }),
+                    use_container_width=True, hide_index=True
+                )
+
+        # ── AN4: Supplier Cost Comparison ────────────────────────────
+        with an4:
+            st.markdown("#### 🚛 Supplier Cost Comparison")
+            st.markdown("<p style='color:#94a3b8;'>Compares transport cost per unit shipped across suppliers.</p>", unsafe_allow_html=True)
+
+            need = {"supplier_id", "transport_cost", "quantity"}
+            if not need.issubset(shipments_df.columns):
+                st.info(f"Need columns: {need} in shipments data.")
+            else:
+                cost_df = shipments_df.groupby("supplier_id").agg(
+                    total_cost=("transport_cost", "sum"),
+                    total_qty=("quantity",        "sum"),
+                    shipment_count=("shipment_id", "count") if "shipment_id" in shipments_df.columns else ("transport_cost","count"),
+                ).reset_index()
+                cost_df["cost_per_unit"]     = (cost_df["total_cost"] / cost_df["total_qty"].replace(0,1)).round(2)
+                cost_df["total_cost_conv"]   = cost_df["total_cost"] * _cur_rate
+                cost_df["cost_per_unit_conv"]= cost_df["cost_per_unit"] * _cur_rate
+                cost_df = cost_df.sort_values("cost_per_unit")
+
+                c1, c2, c3 = st.columns(3)
+                cheapest = cost_df.iloc[0]
+                priciest = cost_df.iloc[-1]
+                c1.metric("💚 Cheapest Supplier", f"ID {cheapest['supplier_id']}", f"{fmt_currency(cheapest['cost_per_unit'])}/unit")
+                c2.metric("🔴 Priciest Supplier", f"ID {priciest['supplier_id']}", f"{fmt_currency(priciest['cost_per_unit'])}/unit")
+                c3.metric("📦 Avg Cost/Unit",     fmt_currency(cost_df["cost_per_unit"].mean()))
+
+                col_ca, col_cb = st.columns(2)
+                with col_ca:
+                    fig_cpu = px.bar(
+                        cost_df, x="supplier_id", y="cost_per_unit_conv",
+                        color="cost_per_unit_conv",
+                        color_continuous_scale=["#22c55e","#f59e0b","#ef4444"],
+                        template="plotly_dark",
+                        title=f"Cost Per Unit by Supplier ({_cur_symbol})",
+                        labels={"supplier_id":"Supplier","cost_per_unit_conv":f"Cost/Unit ({_cur_symbol})"},
+                        text="cost_per_unit_conv",
+                    )
+                    fig_cpu.update_traces(texttemplate=f"{_cur_symbol}%{{text:.2f}}", textposition="outside")
+                    fig_cpu.update_layout(**CHART_LAYOUT)
+                    st.plotly_chart(fig_cpu, use_container_width=True)
+
+                with col_cb:
+                    fig_tc = px.bar(
+                        cost_df, x="supplier_id", y="total_cost_conv",
+                        color="total_cost_conv",
+                        color_continuous_scale=["#0891b2","#06b6d4","#22d3ee"],
+                        template="plotly_dark",
+                        title=f"Total Transport Cost by Supplier ({_cur_symbol})",
+                        labels={"supplier_id":"Supplier","total_cost_conv":f"Total Cost ({_cur_symbol})"},
+                    )
+                    fig_tc.update_layout(**CHART_LAYOUT)
+                    st.plotly_chart(fig_tc, use_container_width=True)
+
+                st.dataframe(
+                    cost_df.rename(columns={
+                        "supplier_id":      "Supplier ID",
+                        "total_cost_conv":  f"Total Cost ({_cur_symbol})",
+                        "total_qty":        "Units Shipped",
+                        "shipment_count":   "Shipments",
+                        "cost_per_unit_conv": f"Cost/Unit ({_cur_symbol})",
+                    })[[
+                        "Supplier ID", f"Total Cost ({_cur_symbol})",
+                        "Units Shipped", "Shipments", f"Cost/Unit ({_cur_symbol})"
+                    ]],
+                    use_container_width=True, hide_index=True
+                )
+                st.download_button(
+                    "📥 Export Cost Comparison CSV",
+                    data=cost_df.to_csv(index=False).encode(),
+                    file_name=f"supplier_costs_{datetime.date.today()}.csv",
+                    mime="text/csv",
+                )
+
+        # ── AN5: Dead Stock Report ────────────────────────────────────
+        with an5:
+            st.markdown("#### 💀 Dead Stock Report")
+            st.markdown("<p style='color:#94a3b8;'>Products with stock on hand but zero sales in the selected period.</p>", unsafe_allow_html=True)
+
+            dead_days = st.slider("No sales in last N days", 7, 180, 30, key="dead_stock_days")
+
+            if "product_id" not in products_df.columns or "product_id" not in sales_df.columns:
+                st.info("Need product_id in both products and sales data.")
+            else:
+                cutoff = pd.Timestamp.now() - pd.Timedelta(days=dead_days)
+                recent_sales = sales_df[sales_df["sale_date"] >= cutoff]["product_id"].unique()
+
+                dead_df = products_df[
+                    (products_df["stock_quantity"] > 0) &
+                    (~products_df["product_id"].isin(recent_sales))
+                ].copy()
+
+                if dead_df.empty:
+                    st.success(f"✅ No dead stock detected in the last {dead_days} days.")
+                else:
+                    d1, d2, d3 = st.columns(3)
+                    d1.metric("💀 Dead Stock Items", len(dead_df))
+                    d2.metric("📦 Units Tied Up",    f"{dead_df['stock_quantity'].sum():,}")
+                    if "unit_price" in dead_df.columns:
+                        tied_value = (dead_df["stock_quantity"] * dead_df["unit_price"]).sum()
+                        d3.metric(f"💰 Value Tied Up ({_cur_symbol})", fmt_currency(tied_value))
+
+                    st.markdown(f"""
+                    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);
+                        border-radius:12px;padding:0.9rem 1.2rem;margin:0.8rem 0;">
+                        ⚠️ <strong style="color:#f87171;">{len(dead_df)} products</strong>
+                        <span style="color:#94a3b8;"> have had no sales in the last
+                        <strong style="color:#f0f9ff;">{dead_days} days</strong>
+                        but still hold stock.</span>
+                    </div>""", unsafe_allow_html=True)
+
+                    name_col = "product_name" if "product_name" in dead_df.columns else "product_id"
+                    fig_dead = px.bar(
+                        dead_df.sort_values("stock_quantity", ascending=False).head(20),
+                        x=name_col, y="stock_quantity",
+                        color="stock_quantity",
+                        color_continuous_scale=["#22c55e","#f59e0b","#ef4444"],
+                        template="plotly_dark",
+                        title=f"Dead Stock — Units on Hand (No sales in {dead_days} days)",
+                        labels={name_col: "Product", "stock_quantity": "Units in Stock"},
+                    )
+                    fig_dead.update_layout(**CHART_LAYOUT)
+                    fig_dead.update_layout(margin=dict(l=10, r=10, t=40, b=80))
+                    st.plotly_chart(fig_dead, use_container_width=True)
+
+                    disp = [c for c in [name_col, "category", "stock_quantity", "reorder_level", "unit_price"] if c in dead_df.columns]
+                    st.dataframe(dead_df[disp].sort_values("stock_quantity", ascending=False),
+                                 use_container_width=True, hide_index=True)
+                    st.download_button(
+                        "📥 Export Dead Stock CSV",
+                        data=dead_df.to_csv(index=False).encode(),
+                        file_name=f"dead_stock_{datetime.date.today()}.csv",
+                        mime="text/csv",
+                    )
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
