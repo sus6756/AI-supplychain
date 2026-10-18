@@ -7,7 +7,7 @@
 **Turn raw operational data — uploads, shipments, sales — into forecasts, anomaly alerts and reorder decisions in one dark, dashboard-grade Streamlit app.**
 
 [![Live Demo](https://img.shields.io/badge/▶_Live_Demo-traqify.streamlit.app-06b6d4?style=for-the-badge&logo=streamlit&logoColor=white)](https://traqify.streamlit.app)
-[![CI](https://github.com/sus6756/AI-supplychain/actions/workflows/ci.yml/badge.svg)](https://github.com/sus6756/AI-supplychain/actions/workflows/ci.yml)
+[![Screenshots](https://img.shields.io/badge/📸_Screenshots-in_README-0891b2?style=for-the-badge)](#-screenshots)
 [![License](https://img.shields.io/badge/license-All_Rights_Reserved-ef4444?style=for-the-badge)](LICENSE)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
