@@ -1,0 +1,86 @@
+name: Bug report
+description: Something in Traqify is broken or behaves unexpectedly.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report! Please fill in as much detail
+        as you can — it makes the fix much faster.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: |
+        e.g. Uploading the demo workbook shows "57 delayed shipments" but the
+        Shipments tab renders an empty table.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in with a demo account
+        2. Upload `sample/supply_chain_demo.xlsx`
+        3. Open the "Shipments" tab
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Traceback / logs
+      description: Paste any red error box, terminal traceback or browser console output.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: data-source
+    attributes:
+      label: Data source in use
+      multiple: true
+      options:
+        - Excel (.xlsx) upload
+        - CSV upload
+        - MySQL connection
+        - Google Sheets
+        - No data loaded yet
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where are you running Traqify?
+      options:
+        - Streamlit Community Cloud (live demo)
+        - Local machine
+        - Dev Container / Codespace
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Environment
+      description: Python version, Streamlit version, OS.
+      placeholder: "Python 3.11.9 · Streamlit 1.51.0 · macOS 15"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I reproduced this on the latest `main` branch.
+          required: true

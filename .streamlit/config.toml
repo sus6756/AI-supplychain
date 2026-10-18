@@ -1,0 +1,23 @@
+# Traqify — Streamlit runtime configuration
+#
+# The custom CSS in `project.py` paints a deep-navy / cyan interface, so the
+# Streamlit base theme has to match. Without this file, native widgets
+# (dataframes, alerts, inputs, tabs) fall back to Streamlit's light theme and
+# clash with the dark canvas.
+
+[theme]
+base = "dark"
+primaryColor = "#06b6d4"
+backgroundColor = "#020617"
+secondaryBackgroundColor = "#03142d"
+textColor = "#f0f9ff"
+linkColor = "#22d3ee"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true

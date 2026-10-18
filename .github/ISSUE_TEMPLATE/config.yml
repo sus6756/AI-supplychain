@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/sus6756/AI-supplychain/discussions
+    about: Ask how to set up the database, load data, or configure email alerts.
+  - name: Security vulnerability
+    url: https://github.com/sus6756/AI-supplychain/security/policy
+    about: Please report security issues privately instead of opening a public issue.

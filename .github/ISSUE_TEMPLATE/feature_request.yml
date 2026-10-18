@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest an idea, new analytic, or integration for Traqify.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. The clearer the problem statement, the easier it is to
+        design a good solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point, not just the solution.
+      placeholder: |
+        e.g. I can't tell which warehouse is causing the most shipping delays,
+        so I have to export the data and pivot it in Excel.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: e.g. Add a "delay by warehouse" grouped bar chart to the Analytics tab.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      multiple: true
+      options:
+        - Analytics & reporting
+        - AI / ML insights
+        - Inventory
+        - Shipments & suppliers
+        - Auth & permissions
+        - Email / notifications
+        - Data sources
+        - UI / theming
+        - Docs
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true

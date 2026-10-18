@@ -256,13 +256,17 @@ st.markdown("""
     border-radius: 4px;
 }
 
-/* ── Auth card ── */
-.auth-card {
+/* ── Auth card ──
+   The card is Streamlit's own form container. Styling it directly avoids an
+   empty card being rendered above the form (a bare <div> opened with
+   st.markdown is auto-closed by Streamlit before the form's widgets). */
+[data-testid="stForm"] {
     background: rgba(2,10,28,0.9);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid var(--border);
     border-radius: 24px; padding: 2.8rem 2.2rem;
+    margin-top: 3rem;
     animation: fadeInUp 0.7s cubic-bezier(.175,.885,.32,1.275) both;
     box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(6,182,212,0.06);
     position: relative; overflow: hidden;
@@ -677,7 +681,6 @@ CHART_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(2,6,23,0.8)",
     font=dict(family="Inter", color="#f0f9ff", size=12),
-    title_font=dict(family="Inter", color="#f0f9ff", size=14),
     xaxis=dict(
         gridcolor="rgba(6,182,212,0.07)",
         linecolor="rgba(6,182,212,0.12)",
@@ -961,9 +964,6 @@ def auth_page():
 
     # ── RIGHT: Auth Form ──────────────────────────────────────────────
     with right_col:
-        st.markdown("<div style='padding: 3rem 0.5rem;'>", unsafe_allow_html=True)
-        st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-
         if st.session_state.auth_mode == "login":
             st.markdown("""
             <div style="text-align:center; margin-bottom:1.8rem;">
@@ -1159,7 +1159,6 @@ def auth_page():
         if st.button(label, use_container_width=True):
             st.session_state.auth_mode = "signup" if st.session_state.auth_mode == "login" else "login"
             st.rerun()
-        st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ====================================================================
 # 6. MAIN DASHBOARD
