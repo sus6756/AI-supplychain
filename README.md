@@ -284,7 +284,6 @@ reads from those three frames, while MySQL separately holds authentication and a
 | **Analytics / ML** | `scikit-learn` · `pandas` · `numpy` | Regression forecasting, z-score anomalies, velocity models |
 | **Reporting** | `fpdf2` · `openpyxl` · SMTP | PDF summaries, Excel exports and HTML emails |
 | **Config** | `.streamlit/config.toml` · Streamlit secrets | Declarative dark theme, credentials out of source |
-| **CI** | GitHub Actions | Byte-compile + dependency validation on every push |
 
 ---
 
@@ -420,7 +419,6 @@ AI-supplychain/
 ├── .streamlit/
 │   └── config.toml                # Theme + server configuration
 ├── .github/
-│   ├── workflows/ci.yml           # Byte-compile + dependency checks
 │   ├── ISSUE_TEMPLATE/            # Structured bug & feature forms
 │   └── PULL_REQUEST_TEMPLATE.md   # PR checklist
 ├── sample/
