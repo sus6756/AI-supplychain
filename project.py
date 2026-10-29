@@ -1,5 +1,7 @@
 # Traqify v3.1 - clean
 import io
+import os
+import re
 import time
 import datetime
 import smtplib
@@ -415,35 +417,124 @@ DB_CONFIG = {
     "password": st.secrets["DB_PASSWORD"],
     "database": st.secrets["DB_NAME"],
     "port":     int(st.secrets["DB_PORT"]),
-    "ssl_ca":   "/etc/ssl/certs/ca-certificates.crt"
+    "connection_timeout": 10,
 }
+# Streamlit Community Cloud ships this CA bundle; local MySQL installs (macOS,
+# Windows) usually don't. Only pass ssl_ca when the file exists so local
+# connections don't fail with "Could not read CA certificate".
+_ssl_ca = st.secrets.get("DB_SSL_CA", "/etc/ssl/certs/ca-certificates.crt")
+if _ssl_ca and os.path.exists(_ssl_ca):
+    DB_CONFIG["ssl_ca"] = _ssl_ca
 
-def init_db():
+
+def _connect(**kwargs):
+    """Raw connector call (kept separate so get_connection can bootstrap)."""
+    return mysql.connector.connect(**kwargs)
+
+
+def describe_db_error(exc: Exception) -> str:
+    """Turn common MySQL connection errors into actionable messages."""
+    text = str(exc)
+    lowered = text.lower()
+    host = DB_CONFIG.get("host", "?")
+    port = DB_CONFIG.get("port", "?")
+    errno = getattr(exc, "errno", None)
+
+    if any(
+        marker in lowered
+        for marker in (
+            "name or service not known",
+            "nodename nor servname",
+            "unknown mysql server host",
+            "temporary failure in name resolution",
+            "getaddrinfo",
+        )
+    ):
+        return (
+            f"❌ Cannot resolve database host `{host}`. "
+            "Check `DB_HOST` in your secrets and confirm the Aiven MySQL "
+            "service still exists — deleted or expired services stop resolving."
+        )
+    if errno == 1045:
+        return (
+            "❌ MySQL rejected the credentials. "
+            "Check `DB_USER` and `DB_PASSWORD` in your secrets."
+        )
+    if errno in (2003, 2005):
+        return (
+            f"❌ Cannot reach MySQL at `{host}:{port}`. "
+            "Check `DB_HOST` / `DB_PORT` and that the database service is running."
+        )
+    return f"❌ Database error: {text}"
+
+
+def get_connection():
+    """Open a MySQL connection, creating the configured database if missing.
+
+    On a brand-new install the database has not been created yet, so the first
+    connect fails with error 1049 (ER_BAD_DB_ERROR). Bootstrap it automatically
+    instead of requiring the user to run CREATE DATABASE by hand.
+    """
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        return _connect(**DB_CONFIG)
+    except Error as exc:
+        if getattr(exc, "errno", None) != 1049:
+            raise
+
+    db_name = st.secrets["DB_NAME"]
+    if not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
+        raise ValueError(f"Invalid database name in secrets: {db_name!r}")
+
+    bootstrap_cfg = {k: v for k, v in DB_CONFIG.items() if k != "database"}
+    conn = _connect(**bootstrap_cfg)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"CREATE DATABASE IF NOT EXISTS `{db_name}` "
+            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        )
+        conn.commit()
+        cursor.close()
+    finally:
+        conn.close()
+    return _connect(**DB_CONFIG)
+
+
+def init_db() -> bool:
+    conn = None
+    cursor = None
+    try:
+        conn   = get_connection()
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
-            email VARCHAR(255) DEFAULT NULL);""")
-        # Add email column if it doesn't exist (for older DBs)
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL;")
-        except Exception:
-            pass  # Column already exists
-        # Add name column if it doesn't exist
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN name VARCHAR(255) DEFAULT NULL;")
-        except Exception:
-            pass  # Column already exists
-        conn.commit(); cursor.close(); conn.close()
+            email VARCHAR(255) DEFAULT NULL,
+            name VARCHAR(255) DEFAULT NULL);""")
+        # Add columns to older databases, but only when they are really missing.
+        for column, ddl in (
+            ("email", "ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT NULL"),
+            ("name",  "ALTER TABLE users ADD COLUMN name VARCHAR(255) DEFAULT NULL"),
+        ):
+            cursor.execute("SHOW COLUMNS FROM users LIKE %s", (column,))
+            if cursor.fetchone() is None:
+                cursor.execute(ddl)
+        conn.commit()
+        return True
     except Error as e:
-        st.error(f"DB Init Error: {e}")
+        st.error(describe_db_error(e))
+        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
 
 def init_supply_chain_tables():
+    conn = None
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        conn   = get_connection()
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS products (
             product_id INT PRIMARY KEY, product_name VARCHAR(100),
@@ -463,9 +554,12 @@ def init_supply_chain_tables():
             sale_id INT PRIMARY KEY, product_id INT, sale_date DATE,
             quantity_sold INT, revenue DECIMAL(10,2),
             FOREIGN KEY (product_id) REFERENCES products(product_id));""")
-        conn.commit(); cursor.close(); conn.close()
+        conn.commit(); cursor.close()
     except Error as e:
-        st.error(f"Table Init Error: {e}")
+        st.error(describe_db_error(e))
+    finally:
+        if conn is not None:
+            conn.close()
 
 # ====================================================================
 # 3b. ACTIVITY LOG & PDF & GSHEET HELPERS
@@ -474,7 +568,7 @@ def init_supply_chain_tables():
 def init_activity_log():
     """Create activity_log and email_schedules tables if they don't exist."""
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS activity_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -508,7 +602,7 @@ def init_activity_log():
 def log_activity(username: str, action: str):
     """Insert a row into the activity_log table."""
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO activity_log (username, action) VALUES (%s, %s)", (username, action))
         conn.commit(); cursor.close(); conn.close()
@@ -519,7 +613,7 @@ def log_activity(username: str, action: str):
 def get_activity_log(limit: int = 200) -> pd.DataFrame:
     """Return the latest `limit` rows from activity_log as a DataFrame."""
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = get_connection()
         df = pd.read_sql(
             "SELECT username, action, timestamp FROM activity_log ORDER BY timestamp DESC LIMIT %s",
             conn,
@@ -529,6 +623,34 @@ def get_activity_log(limit: int = 200) -> pd.DataFrame:
         return df
     except Exception:
         return pd.DataFrame(columns=["username", "action", "timestamp"])
+
+
+def run_sql(query: str):
+    """Execute one SQL statement and return ``(dataframe_or_None, rowcount)``.
+
+    SELECT/SHOW statements return a DataFrame; INSERT/UPDATE/DELETE/DDL commit
+    and return the affected row count. Using a plain cursor (instead of
+    ``pd.read_sql``) means non-SELECT statements no longer crash with
+    "TypeError: 'NoneType' object is not iterable".
+    """
+    if not query or not query.strip():
+        raise ValueError("Enter a SQL query first.")
+
+    conn = get_connection()
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        if cursor.description:
+            columns = [desc[0] for desc in cursor.description]
+            df = pd.DataFrame(cursor.fetchall(), columns=columns)
+            return df, len(df)
+        conn.commit()
+        return None, cursor.rowcount
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
 
 
 def generate_pdf_report(total_rev, delayed, low_stock, products, username: str):
@@ -670,9 +792,9 @@ def send_summary_email(to: str, total_rev, delayed, low_stock, products) -> bool
 # ====================================================================
 # 3d. INIT CALLS
 # ====================================================================
-init_db()
-init_supply_chain_tables()
-init_activity_log()
+if init_db():
+    init_supply_chain_tables()
+    init_activity_log()
 
 # ====================================================================
 # 4. HELPERS
@@ -981,11 +1103,21 @@ def auth_page():
                 password = st.text_input("Password", type="password", placeholder="Enter your password")
                 st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
                 if st.form_submit_button("Sign In →", use_container_width=True):
-                    with st.spinner("Authenticating..."):
-                        conn   = mysql.connector.connect(**DB_CONFIG)
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
-                        row = cursor.fetchone(); cursor.close(); conn.close()
+                    _login_error = None
+                    row = None
+                    conn = None
+                    try:
+                        with st.spinner("Authenticating..."):
+                            conn   = get_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
+                            row = cursor.fetchone()
+                            cursor.close()
+                    except Exception as e:
+                        _login_error = e
+                    finally:
+                        if conn is not None:
+                            conn.close()
                     if row and row[0] == password:
                         st.success("✅ Login successful!")
                         time.sleep(0.5)
@@ -994,6 +1126,8 @@ def auth_page():
                         st.session_state.notif_unlocked = False
                         log_activity(username, "Login")
                         st.rerun()
+                    elif _login_error is not None:
+                        st.error(describe_db_error(_login_error))
                     else:
                         st.error("❌ Invalid username or password")
         else:
@@ -1031,7 +1165,7 @@ def auth_page():
                         else:
                             # Check username not taken
                             try:
-                                conn_c = mysql.connector.connect(**DB_CONFIG)
+                                conn_c = get_connection()
                                 cur_c  = conn_c.cursor()
                                 cur_c.execute("SELECT id FROM users WHERE username=%s", (reg_username.strip(),))
                                 taken = cur_c.fetchone()
@@ -1104,7 +1238,7 @@ def auth_page():
                         elif otp_input.strip() == st.session_state.get("otp_code", ""):
                             # OTP correct — create account
                             try:
-                                conn_r = mysql.connector.connect(**DB_CONFIG)
+                                conn_r = get_connection()
                                 cur_r  = conn_r.cursor()
                                 cur_r.execute(
                                     "INSERT INTO users (username, password, email) VALUES (%s,%s,%s)",
@@ -1625,7 +1759,7 @@ def main_dashboard():
         # Load existing note from DB on first render
         if "notepad_loaded" not in st.session_state:
             try:
-                _conn_np = mysql.connector.connect(**DB_CONFIG)
+                _conn_np = get_connection()
                 _cur_np  = _conn_np.cursor()
                 _cur_np.execute("SELECT content FROM notepads WHERE username=%s", (_np_user,))
                 _row_np = _cur_np.fetchone()
@@ -1647,7 +1781,7 @@ def main_dashboard():
         with col_np1:
             if st.button("💾 Save", key="notepad_save", use_container_width=True):
                 try:
-                    _conn_s = mysql.connector.connect(**DB_CONFIG)
+                    _conn_s = get_connection()
                     _cur_s  = _conn_s.cursor()
                     _cur_s.execute(
                         "INSERT INTO notepads (username, content) VALUES (%s, %s) "
@@ -1664,7 +1798,7 @@ def main_dashboard():
                 st.session_state.notepad_content = ""
                 st.session_state.notepad_loaded = False
                 try:
-                    _conn_c = mysql.connector.connect(**DB_CONFIG)
+                    _conn_c = get_connection()
                     _cur_c  = _conn_c.cursor()
                     _cur_c.execute("DELETE FROM notepads WHERE username=%s", (_np_user,))
                     _conn_c.commit(); _cur_c.close(); _conn_c.close()
@@ -2031,12 +2165,14 @@ def main_dashboard():
             if st.button("▶ Run Query"):
                 with st.spinner("Executing..."):
                     try:
-                        conn = mysql.connector.connect(**DB_CONFIG)
-                        df   = pd.read_sql(query, conn)
-                        conn.close()
-                        st.success(f"✅ Returned {len(df)} rows")
-                        st.dataframe(df, use_container_width=True)
-                    except Error as e:
+                        df_sql, affected = run_sql(query)
+                        if df_sql is not None:
+                            st.success(f"✅ Returned {affected} rows")
+                            st.dataframe(df_sql, use_container_width=True)
+                        else:
+                            st.success(f"✅ Done. Rows affected: {affected}")
+                        log_activity(st.session_state.get("username", "?"), f"SQL: {query[:80]}")
+                    except Exception as e:
                         st.error(f"❌ Query Error: {e}")
         else:
             st.markdown("""
@@ -2086,7 +2222,7 @@ def main_dashboard():
             if st.button("💾 Save Email", key="save_email_btn"):
                 if email_input:
                     try:
-                        conn = mysql.connector.connect(**DB_CONFIG)
+                        conn = get_connection()
                         cursor = conn.cursor()
                         cursor.execute("UPDATE users SET email=%s WHERE username=%s", (email_input, st.session_state.username))
                         conn.commit(); cursor.close(); conn.close()
@@ -2173,7 +2309,7 @@ def main_dashboard():
                     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
                     st.markdown("#### 📤 Send Report to a Specific User")
                     try:
-                        conn_u = mysql.connector.connect(**DB_CONFIG)
+                        conn_u = get_connection()
                         users_df_notif = pd.read_sql("SELECT username, email FROM users WHERE email IS NOT NULL AND email != ''", conn_u)
                         conn_u.close()
                     except Exception:
@@ -2201,7 +2337,7 @@ def main_dashboard():
                 st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
                 st.markdown("#### 👥 User Management")
                 try:
-                    conn_um = mysql.connector.connect(**DB_CONFIG)
+                    conn_um = get_connection()
                     um_df = pd.read_sql("SELECT id, username, email FROM users ORDER BY id", conn_um)
                     conn_um.close()
                 except Exception as e:
@@ -2218,7 +2354,7 @@ def main_dashboard():
                             del_user = st.selectbox("Select user to delete", del_options, key="del_user_select")
                             if st.button("🗑️ Delete", key="del_user_btn"):
                                 try:
-                                    conn_d = mysql.connector.connect(**DB_CONFIG)
+                                    conn_d = get_connection()
                                     cursor_d = conn_d.cursor()
                                     cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
                                     conn_d.commit(); cursor_d.close(); conn_d.close()
@@ -2236,7 +2372,7 @@ def main_dashboard():
                         if st.button("🔑 Reset Password", key="reset_pw_btn"):
                             if new_pw:
                                 try:
-                                    conn_r = mysql.connector.connect(**DB_CONFIG)
+                                    conn_r = get_connection()
                                     cursor_r = conn_r.cursor()
                                     cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
                                     conn_r.commit(); cursor_r.close(); conn_r.close()
@@ -2281,7 +2417,7 @@ def main_dashboard():
             if st.button("💾 Save Schedule", key="save_schedule"):
                 if sched_email:
                     try:
-                        conn = mysql.connector.connect(**DB_CONFIG)
+                        conn = get_connection()
                         cursor = conn.cursor()
                         cursor.execute("""CREATE TABLE IF NOT EXISTS email_schedules (
                             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2301,7 +2437,7 @@ def main_dashboard():
                     st.warning("Enter an email first.")
             if st.session_state.get("username", "") == "lunalupa":
                 try:
-                    conn = mysql.connector.connect(**DB_CONFIG)
+                    conn = get_connection()
                     sched_df = pd.read_sql("SELECT username, email, day_of_week FROM email_schedules", conn)
                     conn.close()
                     if not sched_df.empty:
@@ -2442,7 +2578,7 @@ def main_dashboard():
 
             # Load messages
             try:
-                conn_chat = mysql.connector.connect(**DB_CONFIG)
+                conn_chat = get_connection()
                 cursor_chat = conn_chat.cursor()
                 cursor_chat.execute("SELECT message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at ASC", (curr_user,))
                 chat_rows = cursor_chat.fetchall()
@@ -2473,7 +2609,7 @@ def main_dashboard():
                 if st.button("Send", key="chat_send", use_container_width=True):
                     if new_msg.strip():
                         try:
-                            conn_send = mysql.connector.connect(**DB_CONFIG)
+                            conn_send = get_connection()
                             cursor_send = conn_send.cursor()
                             cursor_send.execute("INSERT INTO messages (sender, message) VALUES (%s, %s)", (curr_user, new_msg.strip()))
                             conn_send.commit(); cursor_send.close(); conn_send.close()
@@ -2496,7 +2632,7 @@ def main_dashboard():
             # End Chat button
             if st.button("❌ End Chat", key="user_end_chat"):
                 try:
-                    conn_end = mysql.connector.connect(**DB_CONFIG)
+                    conn_end = get_connection()
                     cursor_end = conn_end.cursor()
                     cursor_end.execute("DELETE FROM messages WHERE sender=%s", (curr_user,))
                     conn_end.commit(); cursor_end.close(); conn_end.close()
@@ -2522,7 +2658,7 @@ def main_dashboard():
 
         # Load current profile from DB
         try:
-            _conn_pr = mysql.connector.connect(**DB_CONFIG)
+            _conn_pr = get_connection()
             _cur_pr  = _conn_pr.cursor()
             _cur_pr.execute("SELECT name, email FROM users WHERE username=%s", (_pu,))
             _pr_row  = _cur_pr.fetchone()
@@ -2576,7 +2712,7 @@ def main_dashboard():
                     st.warning("Enter at least a name or email to save.")
                 else:
                     try:
-                        _conn_sv = mysql.connector.connect(**DB_CONFIG)
+                        _conn_sv = get_connection()
                         _cur_sv  = _conn_sv.cursor()
                         _cur_sv.execute(
                             "UPDATE users SET name=%s, email=%s WHERE username=%s",
@@ -3058,7 +3194,7 @@ def admin_dashboard():
 
     # ── Quick Stats ──
     try:
-        conn_s = mysql.connector.connect(**DB_CONFIG)
+        conn_s = get_connection()
         cur_s = conn_s.cursor()
         cur_s.execute("SELECT COUNT(*) FROM users WHERE username != 'lunalupa'")
         total_users = cur_s.fetchone()[0]
@@ -3080,7 +3216,7 @@ def admin_dashboard():
     with a1:
         st.markdown("### 👥 User Management")
         try:
-            conn_u = mysql.connector.connect(**DB_CONFIG)
+            conn_u = get_connection()
             um_df = pd.read_sql("SELECT id, username, email, name FROM users WHERE username != 'lunalupa' ORDER BY id", conn_u)
             conn_u.close()
         except Exception as e:
@@ -3139,7 +3275,7 @@ def admin_dashboard():
                     del_user = st.selectbox("Select user", del_options, key="admin_del_user")
                     if st.button("🗑️ Delete User", key="admin_del_btn", use_container_width=True):
                         try:
-                            conn_d = mysql.connector.connect(**DB_CONFIG)
+                            conn_d = get_connection()
                             cursor_d = conn_d.cursor()
                             cursor_d.execute("DELETE FROM users WHERE username=%s", (del_user,))
                             conn_d.commit(); cursor_d.close(); conn_d.close()
@@ -3158,7 +3294,7 @@ def admin_dashboard():
                 if st.button("🔑 Reset", key="admin_reset_btn", use_container_width=True):
                     if new_pw:
                         try:
-                            conn_r = mysql.connector.connect(**DB_CONFIG)
+                            conn_r = get_connection()
                             cursor_r = conn_r.cursor()
                             cursor_r.execute("UPDATE users SET password=%s WHERE username=%s", (new_pw, reset_user))
                             conn_r.commit(); cursor_r.close(); conn_r.close()
@@ -3180,7 +3316,7 @@ def admin_dashboard():
         if st.button("📤 Send to All Users", use_container_width=False, key="broadcast_send"):
             if broadcast_msg and broadcast_subject:
                 try:
-                    conn_b = mysql.connector.connect(**DB_CONFIG)
+                    conn_b = get_connection()
                     emails_df = pd.read_sql("SELECT email FROM users WHERE email IS NOT NULL AND email != ''", conn_b)
                     conn_b.close()
                 except Exception:
@@ -3223,7 +3359,7 @@ def admin_dashboard():
 
         # Load unique senders
         try:
-            conn_i = mysql.connector.connect(**DB_CONFIG)
+            conn_i = get_connection()
             cursor_i = conn_i.cursor()
             cursor_i.execute("SELECT DISTINCT sender FROM messages ORDER BY sender")
             senders = [r[0] for r in cursor_i.fetchall()]
@@ -3237,7 +3373,7 @@ def admin_dashboard():
         else:
             pending_counts = {}
             try:
-                conn_p = mysql.connector.connect(**DB_CONFIG)
+                conn_p = get_connection()
                 cursor_p = conn_p.cursor()
                 cursor_p.execute("SELECT sender, COUNT(*) FROM messages WHERE status='pending' GROUP BY sender")
                 pending_counts = {r[0]: r[1] for r in cursor_p.fetchall()}
@@ -3252,7 +3388,7 @@ def admin_dashboard():
             if selected_sender:
                 # Load conversation
                 try:
-                    conn_cv = mysql.connector.connect(**DB_CONFIG)
+                    conn_cv = get_connection()
                     cursor_cv = conn_cv.cursor()
                     cursor_cv.execute("SELECT id, message, reply, status, created_at FROM messages WHERE sender=%s ORDER BY created_at ASC", (selected_sender,))
                     convo = cursor_cv.fetchall()
@@ -3288,13 +3424,13 @@ def admin_dashboard():
                         if st.button("Reply", key="admin_reply_btn", use_container_width=True):
                             if admin_reply.strip():
                                 try:
-                                    conn_rep = mysql.connector.connect(**DB_CONFIG)
+                                    conn_rep = get_connection()
                                     cursor_rep = conn_rep.cursor()
                                     cursor_rep.execute("UPDATE messages SET reply=%s, status='resolved', replied_at=NOW() WHERE sender=%s AND status='pending'", (admin_reply.strip(), selected_sender))
                                     conn_rep.commit(); cursor_rep.close(); conn_rep.close()
                                     # Email user
                                     try:
-                                        conn_ue = mysql.connector.connect(**DB_CONFIG)
+                                        conn_ue = get_connection()
                                         cur_ue = conn_ue.cursor()
                                         cur_ue.execute("SELECT email FROM users WHERE username=%s", (selected_sender,))
                                         ue = cur_ue.fetchone(); cur_ue.close(); conn_ue.close()
@@ -3318,7 +3454,7 @@ def admin_dashboard():
                 with col_ec2:
                     if st.button("🗑️ Delete Conversation", key="admin_del_convo", use_container_width=True):
                         try:
-                            conn_dc = mysql.connector.connect(**DB_CONFIG)
+                            conn_dc = get_connection()
                             cursor_dc = conn_dc.cursor()
                             cursor_dc.execute("DELETE FROM messages WHERE sender=%s", (selected_sender,))
                             conn_dc.commit(); cursor_dc.close(); conn_dc.close()
@@ -3329,12 +3465,12 @@ def admin_dashboard():
                 with col_ec3:
                     if st.button("❌ End Chat", key="admin_end_chat", use_container_width=True):
                         try:
-                            conn_ec = mysql.connector.connect(**DB_CONFIG)
+                            conn_ec = get_connection()
                             cursor_ec = conn_ec.cursor()
                             cursor_ec.execute("DELETE FROM messages WHERE sender=%s", (selected_sender,))
                             conn_ec.commit(); cursor_ec.close(); conn_ec.close()
                             try:
-                                conn_ue2 = mysql.connector.connect(**DB_CONFIG)
+                                conn_ue2 = get_connection()
                                 cur_ue2 = conn_ue2.cursor()
                                 cur_ue2.execute("SELECT email FROM users WHERE username=%s", (selected_sender,))
                                 ue2 = cur_ue2.fetchone(); cur_ue2.close(); conn_ue2.close()
@@ -3446,18 +3582,12 @@ def admin_dashboard():
         if st.button("▶ Run Query", key="admin_run_query"):
             with st.spinner("Executing..."):
                 try:
-                    conn_sql = mysql.connector.connect(**DB_CONFIG)
-                    cursor_sql = conn_sql.cursor()
-                    cursor_sql.execute(query)
-                    if cursor_sql.description:
-                        cols = [d[0] for d in cursor_sql.description]
-                        df_sql = pd.DataFrame(cursor_sql.fetchall(), columns=cols)
-                        st.success(f"✅ Returned {len(df_sql)} rows")
+                    df_sql, affected = run_sql(query)
+                    if df_sql is not None:
+                        st.success(f"✅ Returned {affected} rows")
                         st.dataframe(df_sql, use_container_width=True)
                     else:
-                        conn_sql.commit()
-                        st.success(f"✅ Done. Rows affected: {cursor_sql.rowcount}")
-                    cursor_sql.close(); conn_sql.close()
+                        st.success(f"✅ Done. Rows affected: {affected}")
                     log_activity("lunalupa", f"SQL: {query[:80]}")
                 except Exception as e:
                     st.error(f"❌ {e}")

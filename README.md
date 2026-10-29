@@ -340,12 +340,10 @@ pip install -r requirements.txt
 
 ### 2 · Create the database
 
-```bash
-mysql -u root -p -e "CREATE DATABASE supply_chain;"
-```
-
-The app creates its own tables on first boot. To seed the schema and sample queries by
-hand, run the statements in [`project(mysql part)`](<project(mysql part)>).
+The app now creates the `supply_chain` database and all of its tables automatically
+on first boot, so no manual `CREATE DATABASE` is required. To seed the schema and
+sample queries by hand, run the statements in
+[`project(mysql part)`](<project(mysql part)>).
 
 ### 3 · Configure secrets
 
@@ -379,9 +377,9 @@ streamlit run project.py
 Open **http://localhost:8501**, create an account (verify the emailed OTP), then upload
 [`sample/supply_chain_demo.xlsx`](sample/supply_chain_demo.xlsx) from the sidebar.
 
-> 💡 **Running on macOS with a local MySQL?** `project.py` pins `ssl_ca` to the Linux CA
-> bundle Streamlit Community Cloud provides. Comment that line out for a local server
-> without TLS.
+> 💡 **TLS / SSL:** `ssl_ca` is only added when the CA bundle exists. Set
+> `DB_SSL_CA = "/path/to/ca.pem"` in secrets to use a custom certificate, or leave it
+> out for a local MySQL server without TLS.
 
 <details>
 <summary><b>Using a Dev Container / GitHub Codespace</b></summary>

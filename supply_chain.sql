@@ -1,7 +1,7 @@
-CREATE DATABASE supply_chain;
+CREATE DATABASE IF NOT EXISTS supply_chain;
 USE supply_chain;
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     product_id INT PRIMARY KEY,
     product_name VARCHAR(100),
     category VARCHAR(50),
@@ -11,14 +11,14 @@ CREATE TABLE products (
     unit_price DECIMAL(10,2)
 );
 
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
     supplier_id INT PRIMARY KEY,
     supplier_name VARCHAR(100),
     country VARCHAR(50),
     reliability_score FLOAT
 );
 
-CREATE TABLE shipments (
+CREATE TABLE IF NOT EXISTS shipments (
     shipment_id INT PRIMARY KEY,
     supplier_id INT,
     product_id INT,
@@ -31,7 +31,7 @@ CREATE TABLE shipments (
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 
-CREATE TABLE sales (
+CREATE TABLE IF NOT EXISTS sales (
     sale_id INT PRIMARY KEY,
     product_id INT,
     sale_date DATE,
